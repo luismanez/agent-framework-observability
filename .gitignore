@@ -1,0 +1,54 @@
+## .NET / C#
+
+# Build outputs
+bin/
+obj/
+out/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+nuget.lock
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# Publish profiles
+PublishProfiles/
+publish/
+
+# MSBuild / MinVer
+artifacts/
+
+# Secrets / config overrides
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+*.pfx
+*.p12
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
