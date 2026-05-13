@@ -6,23 +6,54 @@ Enriches AI agent sessions with stable identity, invocation aggregates, custom t
 
 ## Packages
 
-| Package | Description | Status |
+| Package | NuGet | Description |
 |---|---|---|
-| `Melic.AgentFramework.Observability.Sessions` | Session identity & telemetry enrichment | In development |
-| `Melic.AgentFramework.Observability.Abstractions` | Shared constants and interfaces | In development |
+| `Melic.AgentFramework.Observability.Sessions` | *(coming soon)* | Session identity & telemetry enrichment |
+| `Melic.AgentFramework.Observability.Abstractions` | *(coming soon)* | Shared attribute-name constants |
 
-## Quick start
+## Installation
+
+```xml
+<PackageReference Include="Melic.AgentFramework.Observability.Sessions" Version="1.*" />
+```
+
+## Quick start (Scenario 1 — Mode A enrichment)
+
+One line in your agent builder chain. Every `invoke_agent` span automatically gets
+`genai.session.id`, `genai.session.invocation_index`, `genai.session.age_seconds`,
+and running token totals.
 
 ```csharp
-var agent = new AIAgentBuilder()
+using Microsoft.Agents.AI;
+using Melic.AgentFramework.Observability.Sessions;
+
+AIAgent agent = new AIAgentBuilder(myInnerAgent)
     .UseSessionTelemetry()
     .Build();
+
+AgentSession session = await agent.CreateSessionAsync();
+
+// First invocation — session id is auto-assigned
+AgentResponse r1 = await agent.RunAsync("Hello", session);
+// span tags: genai.session.id=<guid>, genai.session.invocation_index=1, ...
+
+// Second invocation — same id, accumulated totals
+AgentResponse r2 = await agent.RunAsync("How are you?", session);
+// span tags: genai.session.id=<same guid>, genai.session.invocation_index=2, ...
 ```
+
+See the [full quickstart](specs/001-session-identity-enrichment/quickstart.md) for more scenarios:
+
+- Scenario 2 — Assign your own session identifier
+- Scenario 3 — Custom business context tags
+- Scenario 4 — Session persistence across serialization/restore
+- Scenario 5 — Mode B session-level span (`BeginSessionTrace`)
 
 ## Requirements
 
 - .NET 8, 9, or 10
-- Microsoft Agent Framework
+- `Microsoft.Agents.AI` 1.5+
+- `OpenTelemetry.Api` 1.9+
 
 ## License
 

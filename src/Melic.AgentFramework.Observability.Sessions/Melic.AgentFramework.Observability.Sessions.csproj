@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Melic.AgentFramework.Observability.Sessions</PackageId>
+    <Description>Session identity and telemetry enrichment for the Microsoft Agent Framework. Enriches every agent invocation span with a stable session ID, aggregate token counts, custom tags, and optional session-scoped tracing.</Description>
+    <PackageTags>opentelemetry;otel;observability;agents;ai;maf;sessions;telemetry</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Melic.AgentFramework.Observability.Abstractions\Melic.AgentFramework.Observability.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    <PackageReference Include="OpenTelemetry.Api" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Melic.AgentFramework.Observability.Sessions.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>
