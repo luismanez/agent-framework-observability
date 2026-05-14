@@ -6,4 +6,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Melic.AgentFramework.Observability.Sessions.Tests/Melic.AgentFramework.Observability.Sessions.Tests.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/SessionTelemetry.Demo/SessionTelemetry.Demo.csproj" />
+  </Folder>
 </Solution>

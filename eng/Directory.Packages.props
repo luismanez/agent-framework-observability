@@ -11,6 +11,7 @@
     <!-- Microsoft.Extensions.AI -->
     <PackageVersion Include="Microsoft.Extensions.AI" Version="10.5.1" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.5.1" />
+    <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.5.1" />
 
     <!-- OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry" Version="1.15.3" />
@@ -18,6 +19,13 @@
 
     <!-- Diagnostics (ActivitySource, Activity) -->
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.5" />
+
+    <!-- Azure OpenAI / Foundry -->
+    <PackageVersion Include="Azure.AI.OpenAI" Version="2.9.0-beta.1" />
+
+    <!-- OpenTelemetry exporters -->
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.5.0" />
 
     <!-- Build tools -->
     <PackageVersion Include="MinVer" Version="7.0.0" />
