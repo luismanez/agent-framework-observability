@@ -93,25 +93,39 @@ public sealed class SessionTelemetryOptions
 public static class SessionTelemetryExtensions
 {
     /// <summary>
-    /// Returns the stable session identifier for this session. If no identifier has
-    /// been assigned yet, a new GUID-format identifier is generated and persisted.
-    /// This method is idempotent and safe for concurrent calls.
+    /// Returns the stable session ID that the telemetry decorator has assigned to this
+    /// session, or <see langword="null"/> if the session has not yet been enriched by
+    /// at least one invocation. Auto-generation occurs inside the agent pipeline, not
+    /// via this method.
     /// </summary>
     /// <param name="session">The agent session.</param>
-    /// <returns>The stable session identifier string.</returns>
-    public static string GetOrAssignSessionId(this AgentSession session);
+    /// <param name="stateBagKey">
+    /// The <see cref="SessionTelemetryOptions.StateBagKey"/> used when the agent was
+    /// built. Defaults to <c>"__melic_telemetry"</c>.
+    /// </param>
+    /// <returns>The session ID string, or <see langword="null"/> if not yet set.</returns>
+    public static string? GetSessionId(
+        this AgentSession session,
+        string stateBagKey = "__melic_telemetry");
 
     /// <summary>
-    /// Overrides the session identifier. Must be called before the first invocation;
-    /// subsequent calls are silently ignored if a session identifier is already
-    /// persisted.
+    /// Assigns an explicit session identifier to this session. Must be called before
+    /// the first invocation; subsequent calls overwrite any previously assigned value.
+    /// Use this overload to propagate a caller-provided correlation ID.
     /// </summary>
     /// <param name="session">The agent session.</param>
-    /// <param name="sessionId">The custom identifier to assign.</param>
+    /// <param name="sessionId">The session ID value to store.</param>
+    /// <param name="stateBagKey">
+    /// The <see cref="SessionTelemetryOptions.StateBagKey"/> used when the agent was
+    /// built. Defaults to <c>"__melic_telemetry"</c>.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// <paramref name="sessionId"/> is <see langword="null"/>, empty, or whitespace.
     /// </exception>
-    public static void AssignSessionId(this AgentSession session, string sessionId);
+    public static void AssignSessionId(
+        this AgentSession session,
+        string sessionId,
+        string stateBagKey = "__melic_telemetry");
 
     /// <summary>
     /// Attaches a custom string tag to the session. The tag is propagated to every
@@ -139,6 +153,12 @@ public static class SessionTelemetryExtensions
     /// </summary>
     /// <param name="agent">The agent configured with session telemetry.</param>
     /// <param name="session">The agent session whose identifier labels the span.</param>
+    /// <param name="options">
+    /// Optional <see cref="SessionTelemetryOptions"/> override. When <see langword="null"/>,
+    /// a default instance is used (<see cref="SessionTelemetryOptions.EnableSessionSpan"/>
+    /// defaults to <see langword="false"/>, so the no-op disposable is returned unless
+    /// options with <c>EnableSessionSpan = true</c> are provided).
+    /// </param>
     /// <returns>
     /// An <see cref="IDisposable"/> that closes the session span and records final
     /// aggregates when disposed. Returns a no-op disposable if
@@ -149,7 +169,10 @@ public static class SessionTelemetryExtensions
     /// For cross-process or long-lived session correlation, use Mode A enrichment
     /// (filter by <c>genai.session.id</c> tag).
     /// </remarks>
-    public static IDisposable BeginSessionTrace(this AIAgent agent, AgentSession session);
+    public static IDisposable BeginSessionTrace(
+        this AIAgent agent,
+        AgentSession session,
+        SessionTelemetryOptions? options = null);
 }
 ```
 
