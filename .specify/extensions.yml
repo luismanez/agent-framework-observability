@@ -122,6 +122,13 @@ hooks:
     prompt: Commit implementation changes?
     description: Auto-commit after implementation
     condition: null
+  - extension: docify
+    command: speckit.docify
+    enabled: true
+    optional: true
+    prompt: Project completed spec into human-facing docs (README, /docs, CHANGELOG)?
+    description: Project spec content into human-facing documentation
+    condition: null
   after_checklist:
   - extension: git
     command: speckit.git.commit

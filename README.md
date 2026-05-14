@@ -49,6 +49,10 @@ See the [full quickstart](specs/001-session-identity-enrichment/quickstart.md) f
 - Scenario 4 — Session persistence across serialization/restore
 - Scenario 5 — Mode B session-level span (`BeginSessionTrace`)
 
+## Features
+
+- [Session Identity & Enrichment](docs/features/session-identity-enrichment.md) — stable session ID, aggregate token counts, custom tags, optional session span (Mode B)
+
 ## Requirements
 
 - .NET 8, 9, or 10
@@ -58,3 +62,7 @@ See the [full quickstart](specs/001-session-identity-enrichment/quickstart.md) f
 ## License
 
 MIT
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
