@@ -78,6 +78,16 @@ XML documentation comment; no public API may be merged without its doc. Code MUS
 without warnings under `<TreatWarningsAsErrors>true`. No suppression of nullable or
 documentation warnings is permitted on public-facing members.
 
+### VII. Best-Effort Telemetry — Never Affect Agent Behavior
+All telemetry logic MUST be fully encapsulated within a try/catch boundary that prevents
+any telemetry failure from propagating to the caller or altering the outcome of the agent
+invocation. Telemetry is best-effort: a failed span write, a StateBag serialisation error,
+or a metric recording failure MUST be swallowed silently. Telemetry failures MAY be counted
+via a dedicated counter metric (e.g., `session.statebag.write.failures`) but MUST NOT throw
+exceptions or alter control flow visible to the caller. The agent invocation MUST complete —
+or fail for its own reasons — regardless of the health of the telemetry pipeline. This
+principle applies to every package in the suite (Sessions, Performance, Tools, Redaction).
+
 ## Technology Stack & Constraints
 
 **Target Frameworks**: `net8.0`, `net9.0`, `net10.0` (multi-targeted via `<TargetFrameworks>`).

@@ -51,6 +51,24 @@ Feature work follows the Spec Kit convention. Each spec lives under `specs/<NNN>
 and contains `spec.md`, `plan.md`, `tasks.md`, and a `contracts/` directory for public API surface.
 The constitution at `.specify/memory/constitution.md` is the authoritative source for principles.
 
+## Observability Decorator Pattern
+
+All observability packages intercept agent invocations by subclassing `DelegatingAIAgent` and
+registering via `AIAgentBuilder.Use()`. Cross-invocation state is stored in
+`AgentSession.StateBag` under a **configurable string key** (default: `"__melic_telemetry"`),
+serialised as a JSON record using `System.Text.Json`. Each package's state record must be
+independently typed and stored under its own key to avoid collisions between packages.
+
+The Sessions package establishes the design template for all future observability packages:
+
+- **Mode A** (default): Enrich every `invoke_agent` span with structured `genai.*` tags.
+  Consumers correlate sessions by filtering on those tags in their observability backend.
+  No configuration beyond `UseSessionTelemetry()` is required.
+- **Mode B** (opt-in): Open an explicit parent span via `BeginSessionTrace()` so all
+  invocations in a scope appear as children of a single trace tree. Useful for
+  single-process, bounded sessions where visual trace trees are more valuable than filtered
+  queries. Enabled via `SessionTelemetryOptions.EnableSessionSpan = true`.
+
 ---
 
 <!-- SPECKIT START -->
