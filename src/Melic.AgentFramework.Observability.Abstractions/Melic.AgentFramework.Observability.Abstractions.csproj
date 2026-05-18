@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
+
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Melic.AgentFramework.Observability.Abstractions</PackageId>
     <Description>Shared constants and interfaces for the Melic Agent Framework Observability library.</Description>
     <PackageTags>opentelemetry;otel;observability;agents;ai;maf</PackageTags>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
 </Project>

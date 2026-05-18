@@ -1,0 +1,26 @@
+<Project>
+  <PropertyGroup>
+    <Authors>Luis Manez</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>© Luis Manez. All rights reserved.</Copyright>
+    <PackageProjectUrl>https://github.com/luismanez/agent-framework-observability</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/luismanez/agent-framework-observability</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+
+    <!-- Shared readme shown on nuget.org for all packages -->
+    <PackageReadmeFile>NUGET.md</PackageReadmeFile>
+
+    <!-- Package icon shown on nuget.org -->
+    <PackageIcon>melic-maf-observability-icon.jpg</PackageIcon>
+
+    <!-- Symbol packages for step-through debugging -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(RepoRoot)/nuget/NUGET.md" Link="NUGET.md" Pack="true" PackagePath="." />
+    <None Include="$(RepoRoot)/nuget/melic-maf-observability-icon.jpg" Link="melic-maf-observability-icon.jpg" Pack="true" PackagePath="." />
+  </ItemGroup>
+</Project>

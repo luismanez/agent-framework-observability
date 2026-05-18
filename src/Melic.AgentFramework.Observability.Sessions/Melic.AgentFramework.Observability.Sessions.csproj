@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
+
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Melic.AgentFramework.Observability.Sessions</PackageId>
     <Description>Session identity and telemetry enrichment for the Microsoft Agent Framework. Enriches every agent invocation span with a stable session ID, aggregate token counts, custom tags, and optional session-scoped tracing.</Description>
     <PackageTags>opentelemetry;otel;observability;agents;ai;maf;sessions;telemetry</PackageTags>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>

@@ -10,10 +10,6 @@
     <!-- SPDX license header is required on all source files: SPDX-License-Identifier: MIT -->
   </PropertyGroup>
 
-  <PropertyGroup>
-    <Authors>Luis Manez</Authors>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/luismanez/agent-framework-observability</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-  </PropertyGroup>
+  <!-- Package metadata (Authors, License, Readme, etc.) is in nuget/nuget-package.props.
+       Import that file from each packable .csproj. -->
 </Project>
