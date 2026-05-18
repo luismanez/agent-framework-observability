@@ -55,6 +55,9 @@ Banner(useAppInsights
 //   Metrics → Metrics Explorer   → session.invocations, session.duration, session.active
 
 var traceBuilder = Sdk.CreateTracerProviderBuilder()
+    // MAF emits the `invoke_agent` span on this source (enabled below via .UseOpenTelemetry()).
+    .AddSource("Experimental.Microsoft.Agents.AI")
+    // Our library emits the optional `agent_session` span (Mode B) on this source.
     .AddSource("Melic.AgentFramework.Observability.Sessions");
 
 var metricsBuilder = Sdk.CreateMeterProviderBuilder()
@@ -87,7 +90,15 @@ AIAgent innerAgent = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCreden
         name: "SessionDemoAgent");
 
 AIAgent agent = new AIAgentBuilder(innerAgent)
-    .UseSessionTelemetry(opt =>
+    // AIAgentBuilder rule: FIRST .Use() added is OUTERMOST.
+    // We need the `invoke_agent` span (created by UseOpenTelemetry) to still be open
+    // when SessionTelemetry calls SetTag on Activity.Current → so OpenTelemetry must
+    // be OUTERMOST and SessionTelemetry must run INSIDE it.
+    .UseOpenTelemetry(configure: otel =>
+    {
+        otel.EnableSensitiveData = true;
+    })                              // 1) outermost — opens the `invoke_agent` activity
+    .UseSessionTelemetry(opt =>     // 2) innermost — enriches Activity.Current (still open)
     {
         opt.TrackTokenAggregates = true;   // accumulate token counts across turns
         opt.EnableSessionSpan    = true;   // allow Mode B (used in Scenario 3)
@@ -204,6 +215,18 @@ Console.WriteLine("Check your telemetry backend:");
 Console.WriteLine("  Console : scroll up for the OTel span output above");
 Console.WriteLine("  App Insights: Transaction Search → filter by customDimensions[\"genai.session.id\"]");
 Console.WriteLine("                Metrics Explorer  → Namespace: Melic.AgentFramework.Observability.Sessions");
+
+// The Azure Monitor exporter batches spans and sends them asynchronously.
+// ForceFlush drains the queue; the Task.Delay lets in-flight HTTP requests complete
+// before the using-var disposals at end of scope kill the process.
+if (useAppInsights)
+{
+    Console.WriteLine("\nFlushing telemetry to App Insights (may take a few seconds)...");
+    tracerProvider.ForceFlush(15_000);
+    meterProvider.ForceFlush(15_000);
+    await Task.Delay(TimeSpan.FromSeconds(5));
+    Console.WriteLine("Done — data should appear in App Insights within ~1-2 minutes.");
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

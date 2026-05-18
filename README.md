@@ -42,6 +42,42 @@ AgentResponse r2 = await agent.RunAsync("How are you?", session);
 // span tags: genai.session.id=<same guid>, genai.session.invocation_index=2, ...
 ```
 
+### ⚠️ Pipeline order matters when combining with `UseOpenTelemetry()`
+
+`UseSessionTelemetry()` enriches the **currently active** `Activity` (the `invoke_agent`
+span emitted by MAF's `UseOpenTelemetry()`). For the enrichment to land on the right span,
+`UseOpenTelemetry()` must be registered **before** `UseSessionTelemetry()` so it ends up
+as the outermost wrapper and its span is still open when the session decorator runs.
+
+`AIAgentBuilder` rule: **first `.Use()` registered = outermost wrapper**.
+
+```csharp
+// ✅ Correct — OpenTelemetry outermost, span open during enrichment
+AIAgent agent = new AIAgentBuilder(inner)
+    .UseOpenTelemetry()        // 1) outermost: opens `invoke_agent` activity
+    .UseSessionTelemetry()     // 2) innermost: SetTag on Activity.Current works
+    .Build();
+
+// ❌ Wrong — session enrichment runs AFTER the span is closed; tags are lost
+AIAgent agent = new AIAgentBuilder(inner)
+    .UseSessionTelemetry()     // outermost
+    .UseOpenTelemetry()        // innermost — closes span before enrichment runs
+    .Build();
+```
+
+If you only use `UseSessionTelemetry()` without `UseOpenTelemetry()`, no `invoke_agent`
+span is emitted at all and only Mode B (`BeginSessionTrace`) will produce traces.
+
+Don't forget to subscribe both `ActivitySource`s in your `TracerProvider`:
+
+```csharp
+Sdk.CreateTracerProviderBuilder()
+    .AddSource("Experimental.Microsoft.Agents.AI")          // MAF invoke_agent spans
+    .AddSource("Melic.AgentFramework.Observability.Sessions") // Mode B session span
+    .AddConsoleExporter()
+    .Build();
+```
+
 See the [full quickstart](specs/001-session-identity-enrichment/quickstart.md) for more scenarios:
 
 - Scenario 2 — Assign your own session identifier

@@ -118,6 +118,104 @@ using (agent.BeginSessionTrace(session))
 
 ---
 
+## Deployment patterns
+
+### ⚠️ Pipeline order when combining with `UseOpenTelemetry()`
+
+`UseSessionTelemetry()` enriches the **currently active** `Activity` — the `invoke_agent` span opened by MAF's own `UseOpenTelemetry()`. For the enrichment to land on the right span, `UseOpenTelemetry()` must be registered **first** in the builder chain so it becomes the outermost wrapper.
+
+`AIAgentBuilder` rule: **first `.Use()` registered = outermost wrapper = executes first on the way in, last on the way out**.
+
+```csharp
+// ✅ Correct — OpenTelemetry opens the span; SessionTelemetry enriches it while it is still open
+AIAgent agent = new AIAgentBuilder(inner)
+    .UseOpenTelemetry()        // 1) outermost: opens `invoke_agent` Activity
+    .UseSessionTelemetry()     // 2) innermost: SetTag on Activity.Current works
+    .Build();
+
+// ❌ Wrong — SessionTelemetry runs after OpenTelemetry has already closed the span
+AIAgent agent = new AIAgentBuilder(inner)
+    .UseSessionTelemetry()     // outermost: Activity.Current is null → tags are silently lost
+    .UseOpenTelemetry()        // innermost: span closes before enrichment runs
+    .Build();
+```
+
+Also register both `ActivitySource`s in your `TracerProvider`:
+
+```csharp
+Sdk.CreateTracerProviderBuilder()
+    .AddSource("Experimental.Microsoft.Agents.AI")              // MAF invoke_agent spans
+    .AddSource("Melic.AgentFramework.Observability.Sessions")   // Mode B agent_session span
+    ...
+```
+
+---
+
+### Stateless REST API (recommended pattern)
+
+In a stateless API (ASP.NET Core, Azure Functions, etc.) the `AgentSession` is recreated on every request from persisted history. The `StateBag` — where this library stores its telemetry state — is **not** automatically persisted, so `invocation_index` and token totals reset to zero on every request.
+
+The recommended pattern is to **anchor the session ID to your existing thread/conversation identifier** so all spans from the same conversation remain correlated in your observability backend:
+
+```csharp
+// POST /api/chat/{threadId}
+app.MapPost("/api/chat/{threadId}", async (
+    string threadId,
+    ChatRequest request,
+    AIAgent agent,
+    IChatHistoryProvider historyProvider) =>
+{
+    // Restore chat history from your persistence layer (SQL, Cosmos, etc.)
+    var history = await historyProvider.LoadAsync(threadId);
+    var session = await agent.CreateSessionAsync(history);
+
+    // Anchor telemetry to the caller's conversation ID
+    session.AssignSessionId(threadId);
+
+    // Optional: business tags from the JWT / claims / request headers
+    session.SetSessionTag("tenant_id", request.TenantId);
+    session.SetSessionTag("user_id",   request.UserId);
+
+    var response = await agent.RunAsync(request.Messages, session);
+    return Results.Ok(response);
+});
+```
+
+**What you get** with this pattern:
+
+| Telemetry signal | Value |
+|---|---|
+| `genai.session.id` | Your `threadId` — all spans of a conversation share this ID |
+| Custom tags (`tenant_id`, `user_id`) | Present on every span automatically |
+| `genai.session.invocation_index` | Always `1` per request — no cross-request accumulation |
+| `genai.session.total_*_tokens` | Tokens for the current request only — not accumulated |
+
+**What you do NOT get** (inherent stateless limitation):
+
+- Running token totals across the lifetime of a conversation
+- Meaningful `age_seconds` / `first_seen` across requests
+
+If cross-request token accumulation is required, persist the raw StateBag JSON alongside the chat history and restore it by calling `DeserializeSessionAsync` (see Scenario 4 above).
+
+---
+
+### In-process / long-lived session (full feature set)
+
+When the `AgentSession` object can be kept alive for the duration of a user's conversation (e.g. SignalR hub, Blazor circuit, desktop app), all features work without extra configuration:
+
+```csharp
+// Session created once per user, reused for every message
+_session = await agent.CreateSessionAsync();
+_session.AssignSessionId(userId);          // optional correlation anchor
+_session.SetSessionTag("tenant_id", tid); // set once, propagated forever
+
+// Each subsequent user message:
+var response = await agent.RunAsync(messages, _session);
+// invocation_index increments, token totals accumulate, age_seconds grows
+```
+
+---
+
 ## Public API Reference
 
 ### `UseSessionTelemetry` (builder extension)

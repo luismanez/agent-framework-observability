@@ -28,6 +28,27 @@ $env:AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-4o-mini"
 dotnet run --project samples/SessionTelemetry.Demo
 ```
 
+## ⚠️ Pipeline order requirement
+
+The demo wires the agent like this — **the order is important**:
+
+```csharp
+AIAgent agent = new AIAgentBuilder(innerAgent)
+    .UseOpenTelemetry()       // outermost: opens the `invoke_agent` span
+    .UseSessionTelemetry(...)  // innermost: enriches the open span with genai.session.*
+    .Build();
+```
+
+`AIAgentBuilder` makes the **first registered `.Use()` the outermost wrapper**. If you
+put `UseSessionTelemetry` first, its enrichment runs AFTER `UseOpenTelemetry` has already
+closed the span — the `genai.session.*` tags are silently lost (you only see MAF's own
+`gen_ai.*` tags in App Insights).
+
+Also required: subscribe both `ActivitySource`s in the `TracerProvider`:
+
+- `Experimental.Microsoft.Agents.AI` — MAF's `invoke_agent` spans
+- `Melic.AgentFramework.Observability.Sessions` — our optional Mode B `agent_session` span
+
 ## Scenarios
 
 | # | Description | Key attributes to verify |
