@@ -39,6 +39,12 @@ session.SetSessionTag("user.tier", "premium");
 - **Mode B tracing** — opt-in explicit parent span via `BeginSessionTrace()` for visual trace trees
 - **OTel-only dependencies** — depends only on `OpenTelemetry.Api`, no MAF internals
 
+## Documentation
+
+Full technical documentation — including deployment patterns, stateless REST API guidance, public API reference, and the complete telemetry schema — lives in the GitHub repository:
+
+- [Sessions package — full reference](https://github.com/luismanez/agent-framework-observability/blob/main/docs/features/session-identity-enrichment.md)
+
 ## Links
 
 - [GitHub repository](https://github.com/luismanez/agent-framework-observability)

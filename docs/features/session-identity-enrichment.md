@@ -16,6 +16,23 @@ Two enrichment modes are available:
 
 ---
 
+## When does this add value over MAF's built-in telemetry?
+
+MAF already emits `invoke_agent` spans with `gen_ai.*` attributes (model, tokens, tool calls) following OTel Semantic Conventions. The `Sessions` package adds value **whenever a logical conversation spans more than one `invoke_agent` call** — especially when those calls live in different requests or processes and cannot be correlated by `traceId` alone.
+
+| Your scenario | Does this package help? |
+|---|---|
+| Single-shot stateless API (one HTTP request = one invocation) | ❌ No real gain — MAF's `traceId` already covers it. |
+| Stateless REST API with persisted chat history + `conversationId` per request, **but no anchoring of `session.id`** | ❌ Each request gets a random `session.id` → useless. |
+| Stateless REST API that **anchors `session.id` to your `conversationId`** (Level 1) | ✅ All spans of a conversation share `genai.session.id` → cross-request correlation in your APM. |
+| Level 1 + **rehydrate `StateBag` from your persistence store** (Level 2) | ✅✅ Plus running totals: `invocation_index`, `total_*_tokens`, `age_seconds` per conversation. |
+| In-process / long-lived `AgentSession` (SignalR, Blazor, desktop) | ✅✅ Full feature set out of the box. |
+| Background workers / batch jobs invoking the agent N times per logical unit | ✅ Mode B (`BeginSessionTrace`) gives a visual trace tree. |
+
+See [Deployment patterns](#deployment-patterns) for concrete pseudocode of each scenario.
+
+---
+
 ## Installation
 
 ```xml
@@ -196,6 +213,54 @@ app.MapPost("/api/chat/{threadId}", async (
 - Meaningful `age_seconds` / `first_seen` across requests
 
 If cross-request token accumulation is required, persist the raw StateBag JSON alongside the chat history and restore it by calling `DeserializeSessionAsync` (see Scenario 4 above).
+
+#### Level 2 — Stateless API with cross-request aggregates
+
+If you want `invocation_index`, `total_*_tokens` and `age_seconds` to grow across HTTP requests of the same conversation, persist and rehydrate the full `AgentSession` (which includes the package's StateBag entry under `__melic_telemetry`).
+
+```csharp
+// POST /api/chat/{threadId}
+app.MapPost("/api/chat/{threadId}", async (
+    string threadId,
+    ChatRequest request,
+    AIAgent agent,
+    ISessionStore sessionStore) =>
+{
+    // 1. Try to restore a previously serialized AgentSession for this conversation.
+    AgentSession session;
+    string? savedJson = await sessionStore.LoadAsync(threadId);
+    if (savedJson is not null)
+    {
+        JsonElement restored = JsonDocument.Parse(savedJson).RootElement;
+        session = await agent.DeserializeSessionAsync(restored);
+    }
+    else
+    {
+        session = await agent.CreateSessionAsync();
+        session.AssignSessionId(threadId);              // anchor for Level 1 correlation
+        session.SetSessionTag("tenant_id", request.TenantId);
+    }
+
+    // 2. Invoke — invocation_index, token totals and age_seconds keep growing.
+    var response = await agent.RunAsync(request.Messages, session);
+
+    // 3. Persist the updated session (chat history + telemetry StateBag) back to storage.
+    JsonElement updated = await agent.SerializeSessionAsync(session);
+    await sessionStore.SaveAsync(threadId, updated.GetRawText());
+
+    return Results.Ok(response);
+});
+```
+
+With this pattern an APM query like
+
+```kusto
+dependencies
+| where customDimensions["genai.session.id"] == "thread-abc-123"
+| order by timestamp asc
+```
+
+returns every turn of the conversation across every process that handled it, with cumulative token counts and a meaningful `age_seconds` per span.
 
 ---
 
