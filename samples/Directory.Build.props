@@ -1,0 +1,16 @@
+<Project>
+  <!-- Chain up to the repository root Directory.Build.props so global settings are inherited. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Samples target a single TFM only — override the library multi-targeting. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks />
+
+    <!-- Samples are not published as NuGet packages. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!-- Warnings in sample/demo code do not fail the build. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

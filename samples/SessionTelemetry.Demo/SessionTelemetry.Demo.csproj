@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SessionTelemetry.Demo</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Melic.AgentFramework.Observability.Abstractions\Melic.AgentFramework.Observability.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Melic.AgentFramework.Observability.Sessions\Melic.AgentFramework.Observability.Sessions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Azure OpenAI / Foundry backend -->
+    <PackageReference Include="Azure.AI.OpenAI" />
+    <!-- MAF core -->
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <!-- MEAI OpenAI bridge (ChatClient → IChatClient) -->
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+    <!-- OTel SDK + exporters -->
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
+  </ItemGroup>
+
+</Project>

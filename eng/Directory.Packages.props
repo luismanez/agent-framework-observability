@@ -1,0 +1,38 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Microsoft Agent Framework -->
+    <PackageVersion Include="Microsoft.Agents.AI" Version="1.5.0" />
+    <PackageVersion Include="Microsoft.Agents.AI.Abstractions" Version="1.5.0" />
+
+    <!-- Microsoft.Extensions.AI -->
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.5.1" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.5.1" />
+    <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.5.1" />
+
+    <!-- OpenTelemetry -->
+    <PackageVersion Include="OpenTelemetry" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />
+
+    <!-- Diagnostics (ActivitySource, Activity) -->
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.5" />
+
+    <!-- Azure OpenAI / Foundry -->
+    <PackageVersion Include="Azure.AI.OpenAI" Version="2.9.0-beta.1" />
+
+    <!-- OpenTelemetry exporters -->
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.5.0" />
+
+    <!-- Build tools -->
+    <PackageVersion Include="MinVer" Version="7.0.0" />
+
+    <!-- Test -->
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
+  </ItemGroup>
+</Project>
