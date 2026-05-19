@@ -42,11 +42,16 @@ publish/
 artifacts/
 
 # Secrets / config overrides
+.env*
 appsettings.Development.json
 appsettings.Local.json
 secrets.json
 *.pfx
 *.p12
+
+# Temporary files
+*.tmp
+*.swp
 
 # OS
 .DS_Store

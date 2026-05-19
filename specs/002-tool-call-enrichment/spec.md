@@ -13,6 +13,7 @@
 - Q: How should captured JSON be truncated for `genai.tool.input` and `genai.tool.output`? → A: Truncate long values before serialization so the final attribute remains valid JSON.
 - Q: What `ActivityKind` should `agent_tool_call` spans use? → A: Use `ActivityKind.Internal` for all tool-call spans.
 - Q: When a tool fails, what shape should `genai.tool.output` use? → A: Emit a JSON object with at least `type` and `message`.
+- Q: Are `otel.status_code` and `otel.status_description` custom span attributes? → A: No. They refer to the exported OpenTelemetry span status derived from `Activity.SetStatus`, not `genai.*` tags.
 
 ---
 
@@ -34,8 +35,8 @@ As a developer, I want each tool invocation made by a MAF agent to appear as a d
 **Acceptance Scenarios**:
 
 1. **Given** an agent with tool telemetry active and one registered tool, **When** the agent invokes that tool during an invocation, **Then** a child span named `agent_tool_call` appears in the trace as a direct child of the `invoke_agent` span, carrying `genai.tool.name` set to the tool's registered name.
-2. **Given** a tool call that completes without error, **When** the span is recorded, **Then** `otel.status_code` is `"OK"` and `otel.status_description` is absent from the child span.
-3. **Given** a tool call that throws an exception, **When** the span is recorded, **Then** `otel.status_code` is `"ERROR"` and `otel.status_description` carries the exception message on the child span.
+2. **Given** a tool call that completes without error, **When** the span is recorded, **Then** the exported OpenTelemetry span status code is `OK` and the status description is absent.
+3. **Given** a tool call that throws an exception, **When** the span is recorded, **Then** the exported OpenTelemetry span status code is `ERROR` and the status description carries the exception message.
 4. **Given** an agent invocation that calls three distinct tools in sequence, **When** the invocation completes, **Then** three separate `agent_tool_call` child spans exist under the same `invoke_agent` span, each carrying its own tool name and independent status.
 5. **Given** a tool call for which a tool call identifier is available, **When** the span is recorded, **Then** `genai.tool.call_id` is set to that identifier on the child span.
 6. **Given** a tool call for which no tool call identifier is available, **When** the span is recorded, **Then** `genai.tool.call_id` is omitted rather than written with a null or empty value.
@@ -57,7 +58,7 @@ As a developer, I want the input parameters and result of each tool call capture
 1. **Given** input capture is enabled (the default) and a tool is called with named parameters, **When** the span is recorded, **Then** `genai.tool.input` contains a JSON object whose keys are parameter names and whose values are the serialized parameter values.
 2. **Given** input capture is enabled and the captured input would exceed the configured maximum input length, **When** the span is recorded, **Then** `genai.tool.input` remains valid JSON, fits within that maximum length, and the span is still recorded successfully.
 3. **Given** output capture is enabled (the default) and a tool returns a result, **When** the span is recorded, **Then** `genai.tool.output` contains the serialized result and, if truncation is required, remains valid JSON while fitting within the configured maximum output length.
-4. **Given** a tool call that raises an exception, **When** the span is recorded, **Then** `genai.tool.output` carries a valid JSON object containing at least the exception `type` and `message` (subject to truncation), and `otel.status_code` is `"ERROR"`.
+4. **Given** a tool call that raises an exception, **When** the span is recorded, **Then** `genai.tool.output` carries a valid JSON object containing at least the exception `type` and `message` (subject to truncation), and the OpenTelemetry span status code is `ERROR`.
 5. **Given** input capture is disabled in configuration, **When** a tool is invoked, **Then** `genai.tool.input` is absent from the span and the tool still executes and returns its result normally.
 6. **Given** output capture is disabled in configuration, **When** a tool completes, **Then** `genai.tool.output` is absent from the span and the tool result is still returned to the agent normally.
 7. **Given** a tool that returns a null result and output capture is enabled, **When** the span is recorded, **Then** `genai.tool.output` reflects the null result without raising an error or omitting the attribute unexpectedly.
@@ -109,6 +110,7 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 - What happens when JSON serialization of the tool output fails? `genai.tool.output` is omitted from the span; the tool result is still returned to the agent normally.
 - What happens when a tool accepts no parameters (empty input) and input capture is enabled? `genai.tool.input` is recorded as `"{}"` (an empty JSON object).
 - What happens when the captured tool output exceeds `MaxOutputLength`? Long values are truncated before serialization so the final `genai.tool.output` attribute remains valid JSON and fits within the configured limit; no error is raised and the span is still recorded.
+- What happens when payload shrinking cannot preserve a meaningful object within the configured max length? The serializer emits the smallest valid JSON value that fits the configured limit, or omits the attribute if no valid JSON representation can fit.
 - What happens when retry call tracking state cannot be initialised or updated (e.g., a concurrent write collision)? Retry attributes are omitted for that span; the tool still executes and the span is still recorded.
 - What happens if multiple tool calls run concurrently within the same `invoke_agent` span? Each tool call gets its own independent child span; retry state tracking handles concurrent updates safely without data races or incorrect attempt counts.
 - What happens when an `invoke_agent` span is not active at the time a tool call begins? The `agent_tool_call` span is still created; it has no parent span and floats as a root span for that call.
@@ -119,7 +121,7 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 
 ### Functional Requirements
 
-- **FR-001**: The library MUST create an OpenTelemetry child span named `agent_tool_call` for each tool call intercepted during an `invoke_agent` span.
+- **FR-001**: The library MUST create an OpenTelemetry span named `agent_tool_call` for each intercepted tool call. When an `invoke_agent` span is current, the tool span MUST be a child of that span.
 - **FR-002**: Each `agent_tool_call` span MUST be parented to the `Activity` that is current at the moment the tool call begins.
 - **FR-002A**: Each `agent_tool_call` span MUST use `ActivityKind.Internal`.
 - **FR-003**: Each `agent_tool_call` span MUST carry `genai.tool.name` set to the name of the invoked tool.
@@ -127,8 +129,8 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 - **FR-005**: When input capture is enabled (the default), the span MUST carry `genai.tool.input` containing a JSON-serialized representation of the call parameters. When serialization fails for any reason, the attribute MUST be omitted and the tool MUST still execute normally.
 - **FR-006**: `genai.tool.input` MUST fit within `ToolTelemetryOptions.MaxInputLength` characters (default: 2048) and remain valid JSON after truncation. When the captured payload would exceed the limit, the implementation MUST truncate oversized values before final serialization rather than clipping the serialized payload arbitrarily.
 - **FR-007**: When output capture is enabled (the default), the span MUST carry `genai.tool.output` containing the serialized result of the tool call. If truncation is required, the final attribute value MUST fit within `ToolTelemetryOptions.MaxOutputLength` characters (default: 2048) and remain valid JSON.
-- **FR-008**: When a tool call raises an exception, `otel.status_code` MUST be set to `"ERROR"`, `otel.status_description` MUST carry the exception message, and `genai.tool.output` MUST carry a valid JSON object containing at least `type` and `message` (subject to `MaxOutputLength` truncation) when output capture is enabled.
-- **FR-009**: When a tool call completes without error, `otel.status_code` MUST be set to `"OK"` and `otel.status_description` MUST be omitted.
+- **FR-008**: When a tool call raises an exception, the OpenTelemetry span status MUST be set to `ERROR`, the status description MUST carry the exception message, and `genai.tool.output` MUST carry a valid JSON object containing at least `type` and `message` (subject to `MaxOutputLength` truncation) when output capture is enabled.
+- **FR-009**: When a tool call completes without error, the OpenTelemetry span status MUST be set to `OK` and the status description MUST be omitted.
 - **FR-010**: The `agent_tool_call` span duration MUST equal the wall-clock execution time of the tool: timing MUST begin immediately before the tool call and end immediately after the result is received or the exception is caught.
 - **FR-011**: When a tool call identifier is available and the same identifier is observed more than once within the same `invoke_agent` span, the second and all subsequent `agent_tool_call` spans for that id MUST carry `genai.tool.is_retry = true` and `genai.tool.attempt_index` equal to the 1-based occurrence count for that id.
 - **FR-012**: The first occurrence of any tool call id within an `invoke_agent` span MUST carry `genai.tool.is_retry = false` and `genai.tool.attempt_index = 1`.
@@ -147,7 +149,7 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 
 ### Key Entities
 
-- **Tool Call Span** (`agent_tool_call`): An OpenTelemetry child span created for each intercepted tool invocation. Uses `ActivityKind.Internal`; carries the tool name, optional call identifier, JSON-serialized input and output (each subject to a configurable maximum length while remaining valid JSON). When a tool fails, the output payload is a JSON object containing at least the exception `type` and `message`. The span also carries execution status (`otel.status_code`) and retry indicators. Its duration equals the wall-clock execution time of the tool. Parented to the current activity at the point the tool call begins.
+- **Tool Call Span** (`agent_tool_call`): An OpenTelemetry span created for each intercepted tool invocation. Uses `ActivityKind.Internal`; carries the tool name, optional call identifier, JSON-serialized input and output (each subject to a configurable maximum length while remaining valid JSON). When a tool fails, the output payload is a JSON object containing at least the exception `type` and `message`. The span sets OpenTelemetry execution status (`OK` or `ERROR`) and carries retry indicators. Its duration equals the wall-clock execution time of the tool. Parented to the current activity at the point the tool call begins; if no activity is current, it is emitted as a root span when listeners are active.
 - **Tool Telemetry Configuration** (`ToolTelemetryOptions`): Developer-supplied options resolved once at agent build time. Controls input/output capture flags, maximum serialized lengths for input and output, and the `ActivitySource` name. Applied uniformly to every tool call intercepted by the configured agent.
 - **Retry Tracking State**: An invocation-scoped data structure that maps each tool call identifier to its 1-based occurrence count within the current `invoke_agent` span. Initialised at the start of each invocation and discarded at the end. Must be safe for concurrent access when multiple tool calls run in parallel within the same invocation.
 - **Tool Attribute Constants**: `public static readonly string` declarations in `Melic.AgentFramework.Observability.Abstractions` for every attribute key in the `genai.tool.*` namespace. These are the single source of truth for attribute names across the entire library suite and MUST be declared in Abstractions before being referenced in the Tools package.
@@ -160,7 +162,7 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 
 - **SC-001**: A developer can see the complete list of tool calls made during any agent invocation — name, timing, and success/error status — in any OpenTelemetry-compatible backend with zero per-tool instrumentation code beyond the one-time builder configuration.
 - **SC-002**: Every `agent_tool_call` span carries accurate wall-clock timing: the span duration matches the actual execution time of the tool, enabling immediate identification of slow tools without additional profiling setup.
-- **SC-003**: Input and output data are present on every tool call span where capture is enabled and serialization succeeds, enabling full reconstruction of tool behavior from trace data alone.
+- **SC-003**: Input and output data are present on every tool call span where capture is enabled and serialization succeeds, enabling diagnostic reconstruction of tool behavior from trace data within the configured payload limits.
 - **SC-004**: Retry and re-invocation loops are automatically surfaced in telemetry: any repeated tool call id within an invocation is flagged with zero additional developer code.
 - **SC-005**: Any failure in tool telemetry — span creation, serialization, retry state management — has zero observable impact on the agent's response; tool results are always delivered to the caller.
 - **SC-006**: Adding tool call telemetry to an existing agent requires exactly one new statement in the builder chain and no changes to any tool implementation or other application code.
@@ -169,7 +171,7 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 
 ## Assumptions
 
-- The MAF public API exposes a mechanism within `DelegatingAIAgent` to intercept tool invocations before and after execution; the library relies solely on that stable public interception surface.
+- The MAF public API exposes function-invocation middleware on `AIAgentBuilder` that receives `FunctionInvocationContext` before and after tool execution; the library relies solely on that stable public interception surface.
 - Tool call parameters are accessible as a collection of named values at the point of interception; JSON serialization via `System.Text.Json` is applied to the full collection without pre-filtering.
 - The MAF tool call representation exposes at minimum a tool name and, when available, a tool call identifier; both are accessed only through the documented public API surface.
 - The standard agent telemetry setup that creates the `invoke_agent` span is already active on the agent builder before tool telemetry is added; this is a prerequisite for the child-span parent relationship.

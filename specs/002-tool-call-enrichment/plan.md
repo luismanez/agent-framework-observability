@@ -6,13 +6,14 @@
 
 ## Summary
 
-Implement `Melic.AgentFramework.Observability.Tools` as a tool-invocation telemetry package for Microsoft Agent Framework. The package will register through `AIAgentBuilder.UseToolTelemetry()` and use MAF's public function-invocation middleware (`AIAgentBuilder.Use(Func<AIAgent, FunctionInvocationContext, ...>)`) to create an `agent_tool_call` child span per tool execution, capture tool name/call id/input/output, mark retries within the current `invoke_agent` span, and keep all telemetry logic best-effort and isolated from business behavior.
+Implement `Melic.AgentFramework.Observability.Tools` as a tool-invocation telemetry package for Microsoft Agent Framework. The package will register through `AIAgentBuilder.UseToolTelemetry()` and use MAF's public function-invocation middleware (`AIAgentBuilder.Use(Func<AIAgent, FunctionInvocationContext, ...>)`) behind Abstractions-defined adapter contracts to create an `agent_tool_call` span per tool execution, capture tool name/call id/input/output, mark retries within the current `invoke_agent` span, and keep all telemetry logic best-effort and isolated from business behavior.
 
 ## Technical Context
 
 **Language/Version**: C# 13 (latest stable), targeting `net8.0;net9.0;net10.0`
 
 **Primary Dependencies**:
+
 - `Microsoft.Agents.AI` — `AIAgent`, `AIAgentBuilder`, `FunctionInvocationDelegatingAgentBuilderExtensions`, `OpenTelemetryAgentBuilderExtensions`, `ChatClientAgentRunOptions`
 - `Microsoft.Extensions.AI` — `FunctionInvocationContext`, `FunctionCallContent`, `AIFunction`, `AIFunctionArguments`, `FunctionInvokingChatClient`
 - `System.Diagnostics.DiagnosticSource` — `Activity`, `ActivitySource`, `ActivityKind`
@@ -31,6 +32,7 @@ Implement `Melic.AgentFramework.Observability.Tools` as a tool-invocation teleme
 **Performance Goals**: One child span per tool invocation with low constant overhead; no extra agent round-trip; no observable change in tool results or invocation completion when telemetry fails.
 
 **Constraints**:
+
 - Public APIs only — no internal MAF types, reflection, or source generators
 - Custom attributes must use `genai.tool.*` and be declared in Abstractions before use
 - Tool spans must use `ActivityKind.Internal`
@@ -50,7 +52,7 @@ Implement `Melic.AgentFramework.Observability.Tools` as a tool-invocation teleme
 - [x] Is the package dependency graph acyclic and rooted at Abstractions? → **PASS** — `Tools` depends only on `Abstractions`; no sibling dependencies.
 - [x] Does the test plan prefer integration tests over mocked unit tests? → **PASS** — trace shape, retry tracking, and MAF middleware coverage will be exercised with a real agent pipeline.
 - [x] Does every new public member have an XML doc comment? → **PASS** — public API limited to builder extension and options type, all documented.
-- [x] Could a MAF version bump silently break this feature? → **PASS** — all direct MAF-dependent reads are isolated to one mapping layer around `FunctionInvocationContext`; the rest of the package works over internal snapshots and Abstractions constants.
+- [x] Could a MAF version bump silently break this feature? → **PASS** — Abstractions defines the adapter contract and tool invocation data shape; the Tools package's only MAF-specific code is the adapter implementation around `FunctionInvocationContext`.
 
 ## Project Structure
 
@@ -72,14 +74,15 @@ specs/002-tool-call-enrichment/
 ```text
 src/
 ├── Melic.AgentFramework.Observability.Abstractions/
-│   └── ToolAttributeNames.cs
+│   ├── ToolAttributeNames.cs
+│   ├── ToolInvocationData.cs
+│   └── ToolInvocationContextAdapter.cs
 ├── Melic.AgentFramework.Observability.Sessions/
 └── Melic.AgentFramework.Observability.Tools/
     ├── ToolTelemetryAgentBuilderExtensions.cs
     ├── ToolTelemetryOptions.cs
     └── Internal/
         ├── ToolTelemetryAgent.cs
-        ├── ToolInvocationSnapshot.cs
         ├── ToolInvocationMapper.cs
         ├── ToolPayloadSerializer.cs
         └── InvocationAttemptRegistry.cs
@@ -91,7 +94,7 @@ tests/
     └── ToolPayloadSerializerTests.cs
 ```
 
-**Structure Decision**: Follow the existing Sessions package shape: a thin public surface (`UseToolTelemetry`, `ToolTelemetryOptions`), all execution logic inside `Internal/`, and all shared attribute names in Abstractions. Testing mirrors this split with integration-first coverage plus one narrow pure helper test class for truncation logic.
+**Structure Decision**: Follow the existing Sessions package shape: a thin public surface (`UseToolTelemetry`, `ToolTelemetryOptions`), all execution logic inside `Internal/`, and all shared attribute names plus MAF adapter contracts in Abstractions. The Tools package implements the Abstractions adapter for `FunctionInvocationContext`, then the telemetry pipeline works over `ToolInvocationData`. Testing mirrors this split with integration-first coverage plus one narrow pure helper test class for truncation logic.
 
 ## Post-Design Constitution Check
 
@@ -100,7 +103,7 @@ tests/
 - [x] Package independence preserved — no direct reference to Sessions.
 - [x] Integration tests remain primary — design centers on full agent pipeline tests.
 - [x] Public API remains small and fully documented.
-- [x] MAF dependency isolated — only the mapper around `FunctionInvocationContext` reads MAF/MEAI-specific members.
+- [x] MAF dependency isolated — Abstractions owns the adapter contract and data shape; only the Tools adapter implementation reads MAF/MEAI-specific members.
 
 ## Complexity Tracking
 

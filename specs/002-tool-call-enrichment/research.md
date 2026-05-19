@@ -127,7 +127,7 @@ internal sealed class InvocationAttemptRegistry
 
 **Question**: What should be written to the span when the tool throws?
 
-**Decision**: Set `otel.status_code = ERROR`, set `otel.status_description` to the exception message, and serialize `genai.tool.output` as a JSON object with at least `type` and `message` when output capture is enabled.
+**Decision**: Set the Activity/OpenTelemetry span status to `ERROR`, set the status description to the exception message, and serialize `genai.tool.output` as a JSON object with at least `type` and `message` when output capture is enabled.
 
 **Rationale**: This keeps the error surface queryable and consistent with the clarified spec. A structured payload is more useful than a plain string when diagnosing repeated failures in KQL/App Insights.
 

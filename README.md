@@ -9,12 +9,14 @@ Enriches AI agent sessions with stable identity, invocation aggregates, custom t
 | Package | NuGet | Description |
 |---|---|---|
 | `Melic.AgentFramework.Observability.Sessions` | *(coming soon)* | Session identity & telemetry enrichment |
+| `Melic.AgentFramework.Observability.Tools` | *(coming soon)* | Tool-call span enrichment |
 | `Melic.AgentFramework.Observability.Abstractions` | *(coming soon)* | Shared attribute-name constants |
 
 ## Installation
 
 ```xml
 <PackageReference Include="Melic.AgentFramework.Observability.Sessions" Version="1.*" />
+<PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="1.*" />
 ```
 
 ## Quick start (Scenario 1 — Mode A enrichment)
@@ -74,6 +76,7 @@ Don't forget to subscribe both `ActivitySource`s in your `TracerProvider`:
 Sdk.CreateTracerProviderBuilder()
     .AddSource("Experimental.Microsoft.Agents.AI")          // MAF invoke_agent spans
     .AddSource("Melic.AgentFramework.Observability.Sessions") // Mode B session span
+    .AddSource("Melic.AgentFramework.Observability.Tools")    // tool-call spans
     .AddConsoleExporter()
     .Build();
 ```
@@ -88,6 +91,7 @@ See the [full quickstart](specs/001-session-identity-enrichment/quickstart.md) f
 ## Features
 
 - [Session Identity & Enrichment](docs/features/session-identity-enrichment.md) — stable session ID, aggregate token counts, custom tags, optional session span (Mode B)
+- [Tool Call Span Enrichment](docs/features/tool-call-enrichment.md) — one `agent_tool_call` span per tool invocation with payload, status, timing, and retry attributes
 
 ## Requirements
 

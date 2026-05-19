@@ -20,12 +20,12 @@
 
 **Purpose**: Add the new Tools package and test project to the repository without implementing story behavior yet.
 
-- [ ] T001 Create Tools project file with package metadata, Abstractions reference, MAF/MEAI/OpenTelemetry references, and InternalsVisibleTo in src/Melic.AgentFramework.Observability.Tools/Melic.AgentFramework.Observability.Tools.csproj
-- [ ] T002 Create Tools test project file with xUnit, OpenTelemetry, and Tools project reference in tests/Melic.AgentFramework.Observability.Tools.Tests/Melic.AgentFramework.Observability.Tools.Tests.csproj
-- [ ] T003 Add Tools source and test projects to agent-framework-observability.slnx under `/src/` and `/tests/`
-- [ ] T004 [P] Create public namespace placeholder file with SPDX header in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryOptions.cs
-- [ ] T005 [P] Create internal namespace placeholder file with SPDX header in src/Melic.AgentFramework.Observability.Tools/Internal/ToolInvocationSnapshot.cs
-- [ ] T006 [P] Create test helpers folder for Activity capture utilities in tests/Melic.AgentFramework.Observability.Tools.Tests/Helpers/ActivityCapture.cs
+- [X] T001 Create Tools project file with package metadata, Abstractions reference, MAF/MEAI/OpenTelemetry references, and InternalsVisibleTo in src/Melic.AgentFramework.Observability.Tools/Melic.AgentFramework.Observability.Tools.csproj
+- [X] T002 Create Tools test project file with xUnit, OpenTelemetry, and Tools project reference in tests/Melic.AgentFramework.Observability.Tools.Tests/Melic.AgentFramework.Observability.Tools.Tests.csproj
+- [X] T003 Add Tools source and test projects to agent-framework-observability.slnx under `/src/` and `/tests/`
+- [X] T004 [P] Create public namespace placeholder file with SPDX header in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryOptions.cs
+- [X] T005 [P] Create Abstractions invocation data placeholder file with SPDX header in src/Melic.AgentFramework.Observability.Abstractions/ToolInvocationData.cs
+- [X] T006 [P] Create test helpers folder for Activity capture utilities in tests/Melic.AgentFramework.Observability.Tools.Tests/Helpers/ActivityCapture.cs
 
 ---
 
@@ -35,14 +35,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T007 Add `ToolAttributeNames` constants with XML docs for all `genai.tool.*` attributes in src/Melic.AgentFramework.Observability.Abstractions/ToolAttributeNames.cs
-- [ ] T008 Implement `ToolTelemetryOptions` defaults and validation helpers in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryOptions.cs
-- [ ] T009 [P] Implement `ToolInvocationSnapshot` record for mapped tool call data in src/Melic.AgentFramework.Observability.Tools/Internal/ToolInvocationSnapshot.cs
-- [ ] T010 [P] Implement `ToolInvocationMapper` to map `FunctionInvocationContext` into `ToolInvocationSnapshot` in src/Melic.AgentFramework.Observability.Tools/Internal/ToolInvocationMapper.cs
-- [ ] T011 [P] Implement `InvocationAttemptRegistry` with parent-Activity scoped concurrent attempt counts in src/Melic.AgentFramework.Observability.Tools/Internal/InvocationAttemptRegistry.cs
-- [ ] T012 [P] Implement initial `ToolPayloadSerializer` shell for JSON serialization entry points in src/Melic.AgentFramework.Observability.Tools/Internal/ToolPayloadSerializer.cs
-- [ ] T013 Add shared ActivityListener test helper able to collect Activity name, source, kind, parent, tags, and status in tests/Melic.AgentFramework.Observability.Tools.Tests/Helpers/ActivityCapture.cs
-- [ ] T014 [P] Add pure tests for `ToolTelemetryOptions` default values and invalid max length/source validation in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryOptionsTests.cs
+- [X] T007 Add `ToolAttributeNames` constants plus MAF adapter boundary types with XML docs in src/Melic.AgentFramework.Observability.Abstractions/ToolAttributeNames.cs, src/Melic.AgentFramework.Observability.Abstractions/ToolInvocationData.cs, and src/Melic.AgentFramework.Observability.Abstractions/ToolInvocationContextAdapter.cs
+- [X] T008 Implement `ToolTelemetryOptions` defaults and validation helpers in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryOptions.cs
+- [X] T009 [P] Implement `ToolInvocationData` record for mapped tool call data in src/Melic.AgentFramework.Observability.Abstractions/ToolInvocationData.cs
+- [X] T010 [P] Implement `ToolInvocationMapper` as the Tools adapter from `FunctionInvocationContext` into Abstractions `ToolInvocationData` in src/Melic.AgentFramework.Observability.Tools/Internal/ToolInvocationMapper.cs
+- [X] T011 [P] Implement `InvocationAttemptRegistry` with parent-Activity scoped concurrent attempt counts in src/Melic.AgentFramework.Observability.Tools/Internal/InvocationAttemptRegistry.cs
+- [X] T012 [P] Implement initial `ToolPayloadSerializer` shell for JSON serialization entry points in src/Melic.AgentFramework.Observability.Tools/Internal/ToolPayloadSerializer.cs
+- [X] T013 Add shared ActivityListener test helper able to collect Activity name, source, kind, parent, tags, and status in tests/Melic.AgentFramework.Observability.Tools.Tests/Helpers/ActivityCapture.cs
+- [X] T014 [P] Add pure tests for `ToolTelemetryOptions` default values and invalid max length/source validation in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryOptionsTests.cs
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in priority order or in parallel where noted.
 
@@ -56,19 +56,19 @@
 
 ### Tests for User Story 1
 
-- [ ] T015 [P] [US1] Add integration test for successful single tool call child span, tool name, `ActivityKind.Internal`, status OK, and parent id in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
-- [ ] T016 [P] [US1] Add integration test for failing tool call status ERROR and `otel.status_description` in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
-- [ ] T017 [P] [US1] Add integration test for three sequential tool calls producing three independent `agent_tool_call` spans in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
-- [ ] T018 [P] [US1] Add integration test proving no spans are emitted when `.UseToolTelemetry()` is not registered in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
+- [X] T015 [P] [US1] Add integration test for successful delayed single tool call child span, tool name, `ActivityKind.Internal`, Activity status OK, parent id, and wall-clock duration in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
+- [X] T016 [P] [US1] Add integration test for failing tool call Activity status ERROR and status description in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
+- [X] T017 [P] [US1] Add integration test for three sequential tool calls producing three independent `agent_tool_call` spans in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
+- [X] T018 [P] [US1] Add integration tests proving no spans are emitted when `.UseToolTelemetry()` is not registered and root spans are emitted when no parent Activity is current in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Implement `UseToolTelemetry()` builder extension using MAF public function-invocation middleware in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryAgentBuilderExtensions.cs
-- [ ] T020 [US1] Implement `ToolTelemetryAgent` callback orchestration to start `agent_tool_call` spans around `next(context, cancellationToken)` in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
-- [ ] T021 [US1] Add span attributes `genai.tool.name` and optional `genai.tool.call_id` during span start in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
-- [ ] T022 [US1] Set tool span status OK/ERROR and status description while preserving original tool result or exception in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
-- [ ] T023 [US1] Ensure all tool telemetry failures are swallowed and do not alter tool execution outcome in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
-- [ ] T024 [US1] Export public API from the intended namespace with XML docs matching contracts/tools-api.md in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryAgentBuilderExtensions.cs
+- [X] T019 [US1] Implement `UseToolTelemetry()` builder extension using MAF public function-invocation middleware in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryAgentBuilderExtensions.cs
+- [X] T020 [US1] Implement `ToolTelemetryAgent` callback orchestration to start `agent_tool_call` spans around `next(context, cancellationToken)` in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T021 [US1] Add span attributes `genai.tool.name` and optional `genai.tool.call_id` during span start in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T022 [US1] Set tool Activity status OK/ERROR and status description while preserving original tool result or exception in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T023 [US1] Ensure all tool telemetry failures are swallowed and do not alter tool execution outcome in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T024 [US1] Export public API from the intended namespace with XML docs matching contracts/tools-api.md in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryAgentBuilderExtensions.cs
 
 **Checkpoint**: User Story 1 is independently functional as the MVP.
 
@@ -82,20 +82,20 @@
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Add serializer tests for empty input `{}`, null output `null`, structured output JSON, and structured exception output `{ type, message }` in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolPayloadSerializerTests.cs
-- [ ] T026 [P] [US2] Add serializer tests proving oversized string values and nested payloads remain valid JSON within configured limits in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolPayloadSerializerTests.cs
-- [ ] T027 [P] [US2] Add integration test for input/output attributes on successful typed tool calls in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryPayloadTests.cs
-- [ ] T028 [P] [US2] Add integration test proving `CaptureInput=false` omits `genai.tool.input` while preserving execution in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryPayloadTests.cs
-- [ ] T029 [P] [US2] Add integration test proving `CaptureOutput=false` omits `genai.tool.output` while preserving execution in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryPayloadTests.cs
-- [ ] T030 [P] [US2] Add integration test for failing tool call structured JSON error output when output capture is enabled in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryPayloadTests.cs
+- [X] T025 [P] [US2] Add serializer tests for empty input `{}`, null output `null`, structured output JSON, and structured exception output `{ type, message }` in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolPayloadSerializerTests.cs
+- [X] T026 [P] [US2] Add serializer tests proving oversized string values and nested payloads remain valid JSON within configured limits in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolPayloadSerializerTests.cs
+- [X] T027 [P] [US2] Add integration test for input/output attributes on successful typed tool calls in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryPayloadTests.cs
+- [X] T028 [P] [US2] Add integration test proving `CaptureInput=false` omits `genai.tool.input` while preserving execution in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryPayloadTests.cs
+- [X] T029 [P] [US2] Add integration test proving `CaptureOutput=false` omits `genai.tool.output` while preserving execution in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryPayloadTests.cs
+- [X] T030 [P] [US2] Add integration test for failing tool call structured JSON error output when output capture is enabled in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryPayloadTests.cs
 
 ### Implementation for User Story 2
 
-- [ ] T031 [US2] Implement `ToolPayloadSerializer` valid-JSON input serialization and length-bounded shrinking in src/Melic.AgentFramework.Observability.Tools/Internal/ToolPayloadSerializer.cs
-- [ ] T032 [US2] Implement `ToolPayloadSerializer` output serialization for success, null, and exception payloads in src/Melic.AgentFramework.Observability.Tools/Internal/ToolPayloadSerializer.cs
-- [ ] T033 [US2] Wire `CaptureInput`, `CaptureOutput`, `MaxInputLength`, and `MaxOutputLength` into span enrichment in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
-- [ ] T034 [US2] Add best-effort omission behavior for input/output serialization failures in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
-- [ ] T035 [US2] Update quickstart payload examples if implementation naming or behavior diverges from planned examples in specs/002-tool-call-enrichment/quickstart.md
+- [X] T031 [US2] Implement `ToolPayloadSerializer` valid-JSON input serialization and length-bounded shrinking in src/Melic.AgentFramework.Observability.Tools/Internal/ToolPayloadSerializer.cs
+- [X] T032 [US2] Implement `ToolPayloadSerializer` output serialization for success, null, and exception payloads in src/Melic.AgentFramework.Observability.Tools/Internal/ToolPayloadSerializer.cs
+- [X] T033 [US2] Wire `CaptureInput`, `CaptureOutput`, `MaxInputLength`, and `MaxOutputLength` into span enrichment in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T034 [US2] Add best-effort omission behavior for input/output serialization failures in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T035 [US2] Update quickstart payload examples if implementation naming or behavior diverges from planned examples in specs/002-tool-call-enrichment/quickstart.md
 
 **Checkpoint**: User Stories 1 and 2 work independently; payload capture can be adopted or disabled per option.
 
@@ -109,16 +109,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T036 [P] [US3] Add unit tests for `InvocationAttemptRegistry` first, second, third, different-id, null-id, and different-parent Activity cases in tests/Melic.AgentFramework.Observability.Tools.Tests/InvocationAttemptRegistryTests.cs
-- [ ] T037 [P] [US3] Add concurrency test for simultaneous attempt recording on the same parent Activity and call id in tests/Melic.AgentFramework.Observability.Tools.Tests/InvocationAttemptRegistryTests.cs
-- [ ] T038 [P] [US3] Add integration test proving repeated tool call id emits `genai.tool.is_retry=true` and `genai.tool.attempt_index=2` on the second span in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryRetryTests.cs
-- [ ] T039 [P] [US3] Add integration test proving retry attributes are omitted when no call id is available in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryRetryTests.cs
+- [X] T036 [P] [US3] Add unit tests for `InvocationAttemptRegistry` first, second, third, different-id, null-id, and different-parent Activity cases in tests/Melic.AgentFramework.Observability.Tools.Tests/InvocationAttemptRegistryTests.cs
+- [X] T037 [P] [US3] Add concurrency test for simultaneous attempt recording on the same parent Activity and call id in tests/Melic.AgentFramework.Observability.Tools.Tests/InvocationAttemptRegistryTests.cs
+- [X] T038 [P] [US3] Add integration test proving repeated tool call id emits `genai.tool.is_retry=true` and `genai.tool.attempt_index=2` on the second span in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryRetryTests.cs
+- [X] T039 [P] [US3] Add integration test proving retry attributes are omitted when no call id is available in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryRetryTests.cs
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Complete `InvocationAttemptRegistry.Record()` with `ConditionalWeakTable<Activity, ConcurrentDictionary<string, int>>` semantics in src/Melic.AgentFramework.Observability.Tools/Internal/InvocationAttemptRegistry.cs
-- [ ] T041 [US3] Wire retry attempt data into `genai.tool.is_retry` and `genai.tool.attempt_index` attributes in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
-- [ ] T042 [US3] Ensure retry tracking is skipped without call id or parent Activity and does not affect span creation in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T040 [US3] Complete `InvocationAttemptRegistry.Record()` with `ConditionalWeakTable<Activity, ConcurrentDictionary<string, int>>` semantics in src/Melic.AgentFramework.Observability.Tools/Internal/InvocationAttemptRegistry.cs
+- [X] T041 [US3] Wire retry attempt data into `genai.tool.is_retry` and `genai.tool.attempt_index` attributes in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T042 [US3] Ensure retry tracking is skipped without call id or parent Activity and does not affect span creation in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
 
 **Checkpoint**: User Stories 1, 2, and 3 work independently; retry diagnostics are complete.
 
@@ -132,16 +132,16 @@
 
 ### Tests for User Story 4
 
-- [ ] T043 [P] [US4] Add integration test for default `.UseToolTelemetry()` activation with no options in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
-- [ ] T044 [P] [US4] Add integration test for custom `ActivitySourceName` producing spans from the configured source in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
-- [ ] T045 [P] [US4] Add integration test combining `.UseOpenTelemetry()`, `.UseSessionTelemetry()`, and `.UseToolTelemetry()` without compile-time Tools-to-Sessions dependency in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
-- [ ] T046 [P] [US4] Add project dependency assertion ensuring Tools references Abstractions but not Sessions in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
+- [X] T043 [P] [US4] Add integration test for default `.UseToolTelemetry()` activation with no options in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
+- [X] T044 [P] [US4] Add integration test for custom `ActivitySourceName` producing spans from the configured source in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
+- [X] T045 [P] [US4] Add integration test combining `.UseOpenTelemetry()`, `.UseSessionTelemetry()`, and `.UseToolTelemetry()` without compile-time Tools-to-Sessions dependency in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
+- [X] T046 [P] [US4] Add project dependency assertion ensuring Tools references Abstractions but not Sessions in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
 
 ### Implementation for User Story 4
 
-- [ ] T047 [US4] Finalize `UseToolTelemetry()` option cloning/validation so invalid source names or non-positive max lengths fail at build configuration in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryAgentBuilderExtensions.cs
-- [ ] T048 [US4] Ensure Tools project has no Sessions project or package reference in src/Melic.AgentFramework.Observability.Tools/Melic.AgentFramework.Observability.Tools.csproj
-- [ ] T049 [US4] Add package tags and description for Tools NuGet metadata in src/Melic.AgentFramework.Observability.Tools/Melic.AgentFramework.Observability.Tools.csproj
+- [X] T047 [US4] Finalize `UseToolTelemetry()` option cloning/validation so invalid source names or non-positive max lengths fail at build configuration in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryAgentBuilderExtensions.cs
+- [X] T048 [US4] Ensure Tools project has no Sessions project or package reference in src/Melic.AgentFramework.Observability.Tools/Melic.AgentFramework.Observability.Tools.csproj
+- [X] T049 [US4] Add package tags and description for Tools NuGet metadata in src/Melic.AgentFramework.Observability.Tools/Melic.AgentFramework.Observability.Tools.csproj
 
 **Checkpoint**: All user stories are independently functional and package adoption is friction-light.
 
@@ -151,15 +151,15 @@
 
 **Purpose**: Repository integration, docs, release readiness, and final validation across all stories.
 
-- [ ] T050 [P] Add Tools package entry and source registration guidance to docs/features/tool-call-enrichment.md
-- [ ] T051 [P] Update root README package table and feature list with `Melic.AgentFramework.Observability.Tools` in README.md
-- [ ] T052 [P] Update NuGet shared README package table and documentation link for Tools in nuget/NUGET.md
-- [ ] T053 Add Tools package to release workflow pack comment/list if needed in .github/workflows/release.yml
-- [ ] T054 Add Tools-specific test filter note to common commands in .github/copilot-instructions.md
-- [ ] T055 Run `dotnet build -c Release` from repository root and fix any warnings/errors in src/Melic.AgentFramework.Observability.Tools/ and tests/Melic.AgentFramework.Observability.Tools.Tests/
-- [ ] T056 Run `dotnet test -c Release --filter "FullyQualifiedName~Tools"` from repository root and fix any test failures in tests/Melic.AgentFramework.Observability.Tools.Tests/
-- [ ] T057 Run `dotnet pack src/Melic.AgentFramework.Observability.Tools -c Release -o ./artifacts --no-build` and verify `.nupkg` and `.snupkg` outputs in artifacts/
-- [ ] T058 Validate quickstart examples against final public API in specs/002-tool-call-enrichment/quickstart.md
+- [X] T050 [P] Add Tools package entry and source registration guidance to docs/features/tool-call-enrichment.md
+- [X] T051 [P] Update root README package table and feature list with `Melic.AgentFramework.Observability.Tools` in README.md
+- [X] T052 [P] Update NuGet shared README package table and documentation link for Tools in nuget/NUGET.md
+- [X] T053 Add Tools package to release workflow pack comment/list if needed in .github/workflows/release.yml
+- [X] T054 Add Tools-specific test filter note to common commands in .github/copilot-instructions.md
+- [X] T055 Run `dotnet build -c Release` from repository root and fix any warnings/errors in src/Melic.AgentFramework.Observability.Tools/ and tests/Melic.AgentFramework.Observability.Tools.Tests/
+- [X] T056 Run `dotnet test -c Release --filter "FullyQualifiedName~Tools"` from repository root and fix any test failures in tests/Melic.AgentFramework.Observability.Tools.Tests/
+- [X] T057 Run `dotnet pack src/Melic.AgentFramework.Observability.Tools -c Release -o ./artifacts --no-build` and verify `.nupkg` and `.snupkg` outputs in artifacts/
+- [X] T058 Validate quickstart examples against final public API in specs/002-tool-call-enrichment/quickstart.md
 
 ---
 
@@ -207,7 +207,7 @@
 
 ```text
 Task: "T015 [P] [US1] Add integration test for successful single tool call child span, tool name, ActivityKind.Internal, status OK, and parent id in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
-Task: "T016 [P] [US1] Add integration test for failing tool call status ERROR and otel.status_description in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
+Task: "T016 [P] [US1] Add integration test for failing tool call Activity status ERROR and status description in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
 Task: "T017 [P] [US1] Add integration test for three sequential tool calls producing three independent agent_tool_call spans in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
 Task: "T018 [P] [US1] Add integration test proving no spans are emitted when .UseToolTelemetry() is not registered in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
 ```

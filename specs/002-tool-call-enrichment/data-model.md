@@ -5,17 +5,17 @@
 
 ---
 
-## Primary Entity: `ToolInvocationSnapshot`
+## Primary Entity: `ToolInvocationData`
 
-**Namespace**: `Melic.AgentFramework.Observability.Tools.Internal`
-**Assembly**: `Melic.AgentFramework.Observability.Tools`
-**Lifetime**: Per tool invocation, created from `FunctionInvocationContext`
+**Namespace**: `Melic.AgentFramework.Observability.Abstractions`
+**Assembly**: `Melic.AgentFramework.Observability.Abstractions`
+**Lifetime**: Per tool invocation, created by an adapter from the public MAF `FunctionInvocationContext`
 
 ```csharp
 // SPDX-License-Identifier: MIT
-namespace Melic.AgentFramework.Observability.Tools.Internal;
+namespace Melic.AgentFramework.Observability.Abstractions;
 
-internal sealed record ToolInvocationSnapshot
+public sealed record ToolInvocationData
 {
     public required string ToolName { get; init; }
     public string? CallId { get; init; }
@@ -28,14 +28,14 @@ internal sealed record ToolInvocationSnapshot
 ### Fields
 
 | Field | Type | Required | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `ToolName` | `string` | Yes | Source for `genai.tool.name`. Never null or whitespace after mapping. |
 | `CallId` | `string?` | No | Source for `genai.tool.call_id`, `genai.tool.is_retry`, and `genai.tool.attempt_index`. |
 | `InputPayload` | `object?` | Yes | Raw argument graph to serialize as valid JSON. Empty input becomes `{}`. |
 | `ParentActivity` | `Activity?` | Yes | Current activity at tool start; used for parenting and retry-state scoping. |
 | `StartedUtc` | `DateTimeOffset` | Yes | Diagnostic timestamp for internal bookkeeping only. |
 
-### Validation Rules
+### Options Validation Rules
 
 - `ToolName` falls back from `context.Function.Name` to `context.CallContent.Name`; if both are missing, the mapper substitutes a non-empty sentinel like `"unknown_tool"`.
 - `CallId` is treated as absent when null, empty, or whitespace.
@@ -59,7 +59,7 @@ public sealed class ToolTelemetryOptions
 ```
 
 | Property | Default | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `CaptureInput` | `true` | Controls whether `genai.tool.input` is emitted. |
 | `CaptureOutput` | `true` | Controls whether `genai.tool.output` is emitted. |
 | `MaxInputLength` | `2048` | Maximum final character length for `genai.tool.input`. Must remain valid JSON. |
@@ -89,7 +89,7 @@ internal sealed class InvocationAttemptRegistry
 ### Responsibilities
 
 | Responsibility | Notes |
-|---|---|
+| --- | --- |
 | Scope retry state to one `invoke_agent` span | Keyed by parent `Activity` instance. |
 | Count attempts per `call_id` | First occurrence = 1, subsequent occurrences increment atomically. |
 | Support concurrency safely | Backed by `ConcurrentDictionary<string, int>`. |
@@ -123,15 +123,15 @@ internal sealed class InvocationAttemptRegistry
 ### Inputs
 
 | Input kind | Source |
-|---|---|
-| Success input | `ToolInvocationSnapshot.InputPayload` |
+| --- | --- |
+| Success input | `ToolInvocationData.InputPayload` |
 | Success output | Tool result object returned from `next(...)` |
 | Error output | Exception object converted to `{ type, message }` |
 
 ### Output Rules
 
 | Rule | Effect |
-|---|---|
+| --- | --- |
 | Empty input arguments | Serialize as `{}` |
 | Null result | Serialize as `null` |
 | Oversized string values | Truncate string leaves first |
@@ -145,7 +145,7 @@ internal sealed class InvocationAttemptRegistry
 **Class**: `ToolAttributeNames` in `Melic.AgentFramework.Observability.Abstractions`
 
 | Constant | Value | Used in |
-|---|---|---|
+| --- | --- | --- |
 | `ToolName` | `"genai.tool.name"` | Required on every tool span |
 | `ToolCallId` | `"genai.tool.call_id"` | Optional correlation for retries |
 | `ToolInput` | `"genai.tool.input"` | Optional JSON input payload |
@@ -162,15 +162,15 @@ internal sealed class InvocationAttemptRegistry
 **ActivitySource**: Configurable, default `Melic.AgentFramework.Observability.Tools`
 
 | Attribute | Type | Required | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `genai.tool.name` | `string` | Yes | Tool/function name |
 | `genai.tool.call_id` | `string` | No | Omitted when absent |
 | `genai.tool.input` | `string` | No | Valid JSON string; omitted when capture disabled or serialization fails |
 | `genai.tool.output` | `string` | No | Valid JSON string; omitted when capture disabled or serialization fails |
 | `genai.tool.is_retry` | `bool` | No | Omitted when `call_id` absent or retry tracking unavailable |
 | `genai.tool.attempt_index` | `int` | No | Omitted when `call_id` absent or retry tracking unavailable |
-| `otel.status_code` | `string` | Yes | `OK` or `ERROR` |
-| `otel.status_description` | `string` | No | Exception message on failure |
+| OpenTelemetry span status code | status | Yes | `OK` or `ERROR` via `Activity.SetStatus` |
+| OpenTelemetry span status description | status | No | Exception message on failure via `Activity.SetStatus` |
 
 ---
 
@@ -181,4 +181,4 @@ This feature introduces exactly two public types in the Tools package:
 - `ToolTelemetryAgentBuilderExtensions`
 - `ToolTelemetryOptions`
 
-Everything else (`ToolTelemetryAgent`, `ToolInvocationSnapshot`, `InvocationAttemptRegistry`, `ToolPayloadSerializer`) remains internal and may evolve without notice.
+Everything else (`ToolTelemetryAgent`, `ToolInvocationMapper`, `InvocationAttemptRegistry`, `ToolPayloadSerializer`) remains internal and may evolve without notice.

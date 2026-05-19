@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Melic.AgentFramework.Observability.Tools</PackageId>
+    <Description>Tool-call span enrichment for the Microsoft Agent Framework. Emits OpenTelemetry spans for each tool invocation with structured input, output, status, and retry attributes.</Description>
+    <PackageTags>opentelemetry;otel;observability;agents;ai;maf;tools;telemetry</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Melic.AgentFramework.Observability.Abstractions\Melic.AgentFramework.Observability.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    <PackageReference Include="OpenTelemetry.Api" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Melic.AgentFramework.Observability.Tools.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

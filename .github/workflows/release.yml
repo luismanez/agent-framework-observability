@@ -39,6 +39,7 @@ jobs:
         # Only packs projects with <IsPackable>true</IsPackable>:
         #   - Melic.AgentFramework.Observability.Abstractions
         #   - Melic.AgentFramework.Observability.Sessions
+        #   - Melic.AgentFramework.Observability.Tools
         # MinVer derives the version automatically from the git tag (e.g. v0.1.0 → 0.1.0)
 
       - name: NuGet login via Trusted Publishing (OIDC)

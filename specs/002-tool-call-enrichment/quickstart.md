@@ -35,7 +35,7 @@ AgentResponse response = await agent.RunAsync("Check order 42", session);
 // - genai.tool.name
 // - genai.tool.input
 // - genai.tool.output
-// - otel.status_code
+// - OpenTelemetry span status
 ```
 
 ---
@@ -112,40 +112,40 @@ If you customize `ToolTelemetryOptions.ActivitySourceName`, register that custom
 ### Span
 
 | Field | Example value |
-|---|---|
+| --- | --- |
 | Name | `agent_tool_call` |
 | Kind | `Internal` |
 | Parent | current `invoke_agent` span when present |
+| Status | `OK` or `ERROR` |
+| Status description | Exception message on failure |
 
 ### Span attributes
 
 | Attribute | Example value |
-|---|---|
+| --- | --- |
 | `genai.tool.name` | `"get_order"` |
 | `genai.tool.call_id` | `"call_123"` |
 | `genai.tool.input` | `{"orderId":"42"}` |
 | `genai.tool.output` | `{"status":"shipped"}` |
 | `genai.tool.is_retry` | `true` |
 | `genai.tool.attempt_index` | `2` |
-| `otel.status_code` | `"OK"` or `"ERROR"` |
-| `otel.status_description` | `"Missing order id"` |
 
 ---
 
 ## Troubleshooting
 
-**No `agent_tool_call` spans appear**
+### No `agent_tool_call` spans appear
 
 - Confirm the agent was built with `.UseToolTelemetry()` before `.Build()`.
 - Confirm an `ActivityListener` or OTel tracer provider subscribes to the configured tool source name.
 - If the agent stack does not use `FunctionInvokingChatClient`, the middleware cannot intercept tool execution.
 
-**Tool spans are roots instead of children**
+### Tool spans are roots instead of children
 
 - Ensure `.UseOpenTelemetry()` is registered so an `invoke_agent` span is current when the tool starts.
 - If no parent `Activity` is active, the tool span is still emitted best-effort as a root span.
 
-**`genai.tool.input` or `genai.tool.output` is missing**
+### `genai.tool.input` or `genai.tool.output` is missing
 
 - Capture may be disabled in `ToolTelemetryOptions`.
 - Serialization may have failed; the package omits the attribute rather than throwing.
