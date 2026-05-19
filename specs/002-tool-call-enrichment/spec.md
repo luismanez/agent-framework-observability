@@ -6,6 +6,14 @@
 
 **Status**: Draft
 
+## Clarifications
+
+### Session 2026-05-19
+
+- Q: How should captured JSON be truncated for `genai.tool.input` and `genai.tool.output`? → A: Truncate long values before serialization so the final attribute remains valid JSON.
+- Q: What `ActivityKind` should `agent_tool_call` spans use? → A: Use `ActivityKind.Internal` for all tool-call spans.
+- Q: When a tool fails, what shape should `genai.tool.output` use? → A: Emit a JSON object with at least `type` and `message`.
+
 ---
 
 ## User Scenarios & Testing *(mandatory)*
@@ -32,6 +40,7 @@ As a developer, I want each tool invocation made by a MAF agent to appear as a d
 5. **Given** a tool call for which a tool call identifier is available, **When** the span is recorded, **Then** `genai.tool.call_id` is set to that identifier on the child span.
 6. **Given** a tool call for which no tool call identifier is available, **When** the span is recorded, **Then** `genai.tool.call_id` is omitted rather than written with a null or empty value.
 7. **Given** tool telemetry is not configured on the agent, **When** the agent invokes a tool, **Then** no `agent_tool_call` span appears and tool execution is unaffected.
+8. **Given** a tool call span is emitted, **When** the span is inspected in the trace, **Then** its `ActivityKind` is `Internal`.
 
 ---
 
@@ -46,9 +55,9 @@ As a developer, I want the input parameters and result of each tool call capture
 **Acceptance Scenarios**:
 
 1. **Given** input capture is enabled (the default) and a tool is called with named parameters, **When** the span is recorded, **Then** `genai.tool.input` contains a JSON object whose keys are parameter names and whose values are the serialized parameter values.
-2. **Given** input capture is enabled and the serialized input exceeds the configured maximum input length, **When** the span is recorded, **Then** `genai.tool.input` is truncated to that maximum length and the span is still recorded successfully.
-3. **Given** output capture is enabled (the default) and a tool returns a result, **When** the span is recorded, **Then** `genai.tool.output` contains the serialized result truncated to the configured maximum output length.
-4. **Given** a tool call that raises an exception, **When** the span is recorded, **Then** `genai.tool.output` carries the exception message (subject to truncation), and `otel.status_code` is `"ERROR"`.
+2. **Given** input capture is enabled and the captured input would exceed the configured maximum input length, **When** the span is recorded, **Then** `genai.tool.input` remains valid JSON, fits within that maximum length, and the span is still recorded successfully.
+3. **Given** output capture is enabled (the default) and a tool returns a result, **When** the span is recorded, **Then** `genai.tool.output` contains the serialized result and, if truncation is required, remains valid JSON while fitting within the configured maximum output length.
+4. **Given** a tool call that raises an exception, **When** the span is recorded, **Then** `genai.tool.output` carries a valid JSON object containing at least the exception `type` and `message` (subject to truncation), and `otel.status_code` is `"ERROR"`.
 5. **Given** input capture is disabled in configuration, **When** a tool is invoked, **Then** `genai.tool.input` is absent from the span and the tool still executes and returns its result normally.
 6. **Given** output capture is disabled in configuration, **When** a tool completes, **Then** `genai.tool.output` is absent from the span and the tool result is still returned to the agent normally.
 7. **Given** a tool that returns a null result and output capture is enabled, **When** the span is recorded, **Then** `genai.tool.output` reflects the null result without raising an error or omitting the attribute unexpectedly.
@@ -99,7 +108,7 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 - What happens when JSON serialization of tool input parameters fails? `genai.tool.input` is omitted from the span; the tool executes normally and the span is still recorded with all other attributes.
 - What happens when JSON serialization of the tool output fails? `genai.tool.output` is omitted from the span; the tool result is still returned to the agent normally.
 - What happens when a tool accepts no parameters (empty input) and input capture is enabled? `genai.tool.input` is recorded as `"{}"` (an empty JSON object).
-- What happens when the serialized tool output exceeds `MaxOutputLength`? It is truncated to exactly `MaxOutputLength` characters; no error is raised and the span is recorded with the truncated value.
+- What happens when the captured tool output exceeds `MaxOutputLength`? Long values are truncated before serialization so the final `genai.tool.output` attribute remains valid JSON and fits within the configured limit; no error is raised and the span is still recorded.
 - What happens when retry call tracking state cannot be initialised or updated (e.g., a concurrent write collision)? Retry attributes are omitted for that span; the tool still executes and the span is still recorded.
 - What happens if multiple tool calls run concurrently within the same `invoke_agent` span? Each tool call gets its own independent child span; retry state tracking handles concurrent updates safely without data races or incorrect attempt counts.
 - What happens when an `invoke_agent` span is not active at the time a tool call begins? The `agent_tool_call` span is still created; it has no parent span and floats as a root span for that call.
@@ -112,12 +121,13 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 
 - **FR-001**: The library MUST create an OpenTelemetry child span named `agent_tool_call` for each tool call intercepted during an `invoke_agent` span.
 - **FR-002**: Each `agent_tool_call` span MUST be parented to the `Activity` that is current at the moment the tool call begins.
+- **FR-002A**: Each `agent_tool_call` span MUST use `ActivityKind.Internal`.
 - **FR-003**: Each `agent_tool_call` span MUST carry `genai.tool.name` set to the name of the invoked tool.
 - **FR-004**: When a tool call identifier is available from MAF at the time of interception, the span MUST carry `genai.tool.call_id` set to that identifier. When no identifier is available, `genai.tool.call_id` MUST be omitted — never written as null or empty.
 - **FR-005**: When input capture is enabled (the default), the span MUST carry `genai.tool.input` containing a JSON-serialized representation of the call parameters. When serialization fails for any reason, the attribute MUST be omitted and the tool MUST still execute normally.
-- **FR-006**: `genai.tool.input` MUST be truncated to `ToolTelemetryOptions.MaxInputLength` characters (default: 2048) before being written to the span. Truncation applies to the final serialized string, not to individual parameter values before serialization.
-- **FR-007**: When output capture is enabled (the default), the span MUST carry `genai.tool.output` containing the serialized result of the tool call, truncated to `ToolTelemetryOptions.MaxOutputLength` characters (default: 2048).
-- **FR-008**: When a tool call raises an exception, `otel.status_code` MUST be set to `"ERROR"`, `otel.status_description` MUST carry the exception message, and `genai.tool.output` MUST carry the exception message (subject to `MaxOutputLength` truncation) when output capture is enabled.
+- **FR-006**: `genai.tool.input` MUST fit within `ToolTelemetryOptions.MaxInputLength` characters (default: 2048) and remain valid JSON after truncation. When the captured payload would exceed the limit, the implementation MUST truncate oversized values before final serialization rather than clipping the serialized payload arbitrarily.
+- **FR-007**: When output capture is enabled (the default), the span MUST carry `genai.tool.output` containing the serialized result of the tool call. If truncation is required, the final attribute value MUST fit within `ToolTelemetryOptions.MaxOutputLength` characters (default: 2048) and remain valid JSON.
+- **FR-008**: When a tool call raises an exception, `otel.status_code` MUST be set to `"ERROR"`, `otel.status_description` MUST carry the exception message, and `genai.tool.output` MUST carry a valid JSON object containing at least `type` and `message` (subject to `MaxOutputLength` truncation) when output capture is enabled.
 - **FR-009**: When a tool call completes without error, `otel.status_code` MUST be set to `"OK"` and `otel.status_description` MUST be omitted.
 - **FR-010**: The `agent_tool_call` span duration MUST equal the wall-clock execution time of the tool: timing MUST begin immediately before the tool call and end immediately after the result is received or the exception is caught.
 - **FR-011**: When a tool call identifier is available and the same identifier is observed more than once within the same `invoke_agent` span, the second and all subsequent `agent_tool_call` spans for that id MUST carry `genai.tool.is_retry = true` and `genai.tool.attempt_index` equal to the 1-based occurrence count for that id.
@@ -137,7 +147,7 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 
 ### Key Entities
 
-- **Tool Call Span** (`agent_tool_call`): An OpenTelemetry child span created for each intercepted tool invocation. Carries the tool name, optional call identifier, JSON-serialized input and output (each subject to a configurable maximum length), execution status (`otel.status_code`), and retry indicators. Its duration equals the wall-clock execution time of the tool. Parented to the current activity at the point the tool call begins.
+- **Tool Call Span** (`agent_tool_call`): An OpenTelemetry child span created for each intercepted tool invocation. Uses `ActivityKind.Internal`; carries the tool name, optional call identifier, JSON-serialized input and output (each subject to a configurable maximum length while remaining valid JSON). When a tool fails, the output payload is a JSON object containing at least the exception `type` and `message`. The span also carries execution status (`otel.status_code`) and retry indicators. Its duration equals the wall-clock execution time of the tool. Parented to the current activity at the point the tool call begins.
 - **Tool Telemetry Configuration** (`ToolTelemetryOptions`): Developer-supplied options resolved once at agent build time. Controls input/output capture flags, maximum serialized lengths for input and output, and the `ActivitySource` name. Applied uniformly to every tool call intercepted by the configured agent.
 - **Retry Tracking State**: An invocation-scoped data structure that maps each tool call identifier to its 1-based occurrence count within the current `invoke_agent` span. Initialised at the start of each invocation and discarded at the end. Must be safe for concurrent access when multiple tool calls run in parallel within the same invocation.
 - **Tool Attribute Constants**: `public static readonly string` declarations in `Melic.AgentFramework.Observability.Abstractions` for every attribute key in the `genai.tool.*` namespace. These are the single source of truth for attribute names across the entire library suite and MUST be declared in Abstractions before being referenced in the Tools package.

@@ -74,5 +74,5 @@ The Sessions package establishes the design template for all future observabilit
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/001-session-identity-enrichment/plan.md
+at specs/002-tool-call-enrichment/plan.md
 <!-- SPECKIT END -->
