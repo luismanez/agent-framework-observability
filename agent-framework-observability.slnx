@@ -10,5 +10,6 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/SessionTelemetry.Demo/SessionTelemetry.Demo.csproj" />
+    <Project Path="samples/ToolTelemetry.Demo/ToolTelemetry.Demo.csproj" />
   </Folder>
 </Solution>
