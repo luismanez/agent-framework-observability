@@ -129,6 +129,13 @@ hooks:
     prompt: Project completed spec into human-facing docs (README, /docs, CHANGELOG)?
     description: Project spec content into human-facing documentation
     condition: null
+  - extension: retrospect
+    command: speckit.retrospect
+    enabled: true
+    optional: true
+    prompt: Review completed feature for Copilot customization improvements (instructions, skills, agents, constitution, hooks)?
+    description: Retrospect on customization layer improvements motivated by the completed feature
+    condition: null
   after_checklist:
   - extension: git
     command: speckit.git.commit
@@ -144,13 +151,6 @@ hooks:
     optional: true
     prompt: Commit analysis results?
     description: Auto-commit after analysis
-    condition: null
-  - extension: retrospect
-    command: speckit.retrospect
-    enabled: true
-    optional: true
-    prompt: Review completed feature for Copilot customization improvements (instructions, skills, agents, constitution, hooks)?
-    description: Retrospect on customization layer improvements motivated by the completed feature
     condition: null
   after_taskstoissues:
   - extension: git

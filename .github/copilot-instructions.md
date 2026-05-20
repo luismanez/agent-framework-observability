@@ -11,7 +11,7 @@ and PII redaction. All packages target `net8.0`, `net9.0`, and `net10.0`.
 | `Melic.AgentFramework.Observability.Abstractions` | Shared attribute constants (`SessionAttributeNames`, etc.), interfaces |
 | `Melic.AgentFramework.Observability.Sessions` | Conversation/session lifecycle tracing |
 | `Melic.AgentFramework.Observability.Performance` | _(planned)_ CPU/memory/latency instrumentation |
-| `Melic.AgentFramework.Observability.Tools` | _(planned)_ Tool-call span enrichment |
+| `Melic.AgentFramework.Observability.Tools` | Tool-call span enrichment |
 | `Melic.AgentFramework.Observability.Redaction` | _(planned)_ PII redaction pipeline |
 | `Melic.AgentFramework.Observability` | Meta-package — no code, aggregates the above |
 
@@ -43,6 +43,7 @@ Source lives under `src/`, tests under `tests/`. Solution file: `agent-framework
 dotnet build                          # all TFMs, zero warnings expected
 dotnet test                           # xUnit across net8/net9/net10
 dotnet test --filter "FullyQualifiedName~Sessions"   # single package
+dotnet test --filter "FullyQualifiedName~Tools"      # Tools package
 ```
 
 ## Feature Specs
@@ -53,8 +54,9 @@ The constitution at `.specify/memory/constitution.md` is the authoritative sourc
 
 ## Observability Decorator Pattern
 
-All observability packages intercept agent invocations by subclassing `DelegatingAIAgent` and
-registering via `AIAgentBuilder.Use()`. Cross-invocation state is stored in
+Most observability packages intercept agent invocations by subclassing `DelegatingAIAgent` and
+registering via `AIAgentBuilder.Use()`. The Tools package uses MAF's public function-invocation
+middleware to intercept tool execution around `FunctionInvocationContext`. Cross-invocation state is stored in
 `AgentSession.StateBag` under a **configurable string key** (default: `"__melic_telemetry"`),
 serialised as a JSON record using `System.Text.Json`. Each package's state record must be
 independently typed and stored under its own key to avoid collisions between packages.
@@ -74,5 +76,5 @@ The Sessions package establishes the design template for all future observabilit
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/001-session-identity-enrichment/plan.md
+at specs/002-tool-call-enrichment/plan.md
 <!-- SPECKIT END -->

@@ -2,11 +2,14 @@
   <Folder Name="/src/">
     <Project Path="src/Melic.AgentFramework.Observability.Abstractions/Melic.AgentFramework.Observability.Abstractions.csproj" />
     <Project Path="src/Melic.AgentFramework.Observability.Sessions/Melic.AgentFramework.Observability.Sessions.csproj" />
+    <Project Path="src/Melic.AgentFramework.Observability.Tools/Melic.AgentFramework.Observability.Tools.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Melic.AgentFramework.Observability.Sessions.Tests/Melic.AgentFramework.Observability.Sessions.Tests.csproj" />
+    <Project Path="tests/Melic.AgentFramework.Observability.Tools.Tests/Melic.AgentFramework.Observability.Tools.Tests.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/SessionTelemetry.Demo/SessionTelemetry.Demo.csproj" />
+    <Project Path="samples/ToolTelemetry.Demo/ToolTelemetry.Demo.csproj" />
   </Folder>
 </Solution>

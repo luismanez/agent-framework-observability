@@ -7,14 +7,16 @@ Enriches AI agent sessions with stable identity, invocation aggregates, custom t
 ## Packages
 
 | Package | NuGet | Description |
-|---|---|---|
+| --- | --- | --- |
 | `Melic.AgentFramework.Observability.Sessions` | *(coming soon)* | Session identity & telemetry enrichment |
+| `Melic.AgentFramework.Observability.Tools` | *(coming soon)* | Bounded tool-call payload and retry enrichment |
 | `Melic.AgentFramework.Observability.Abstractions` | *(coming soon)* | Shared attribute-name constants |
 
 ## Installation
 
 ```xml
 <PackageReference Include="Melic.AgentFramework.Observability.Sessions" Version="1.*" />
+<PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="1.*" />
 ```
 
 ## Quick start (Scenario 1 — Mode A enrichment)
@@ -40,6 +42,30 @@ AgentResponse r1 = await agent.RunAsync("Hello", session);
 // Second invocation — same id, accumulated totals
 AgentResponse r2 = await agent.RunAsync("How are you?", session);
 // span tags: genai.session.id=<same guid>, genai.session.invocation_index=2, ...
+```
+
+### Tool telemetry quick start
+
+Add tool telemetry after MAF OpenTelemetry to enrich MAF's existing `execute_tool`
+spans with bounded payload and retry attributes. MAF continues to provide standard
+tool identity fields such as `gen_ai.tool.name` and `gen_ai.tool.call.id`.
+
+```csharp
+using Microsoft.Agents.AI;
+using Melic.AgentFramework.Observability.Tools;
+
+AIAgent agent = new AIAgentBuilder(myInnerAgent)
+    .UseOpenTelemetry()
+    .UseToolTelemetry()
+    .Build();
+
+AgentSession session = await agent.CreateSessionAsync();
+AgentResponse response = await agent.RunAsync("Check order 42", session);
+
+// MAF execute_tool span:
+// - gen_ai.tool.name / gen_ai.tool.call.id from MAF
+// - genai.tool.input / genai.tool.output from this package
+// - genai.tool.is_retry / genai.tool.attempt_index when a call id repeats
 ```
 
 ### ⚠️ Pipeline order matters when combining with `UseOpenTelemetry()`
@@ -74,6 +100,7 @@ Don't forget to subscribe both `ActivitySource`s in your `TracerProvider`:
 Sdk.CreateTracerProviderBuilder()
     .AddSource("Experimental.Microsoft.Agents.AI")          // MAF invoke_agent spans
     .AddSource("Melic.AgentFramework.Observability.Sessions") // Mode B session span
+    .AddSource("Melic.AgentFramework.Observability.Tools")    // fallback tool-call spans
     .AddConsoleExporter()
     .Build();
 ```
@@ -88,6 +115,7 @@ See the [full quickstart](specs/001-session-identity-enrichment/quickstart.md) f
 ## Features
 
 - [Session Identity & Enrichment](docs/features/session-identity-enrichment.md) — stable session ID, aggregate token counts, custom tags, optional session span (Mode B)
+- [Tool Call Span Enrichment](docs/features/tool-call-enrichment.md) — enriches MAF `execute_tool` spans with bounded payload and retry attributes
 
 ## Requirements
 
