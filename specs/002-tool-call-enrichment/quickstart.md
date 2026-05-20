@@ -16,23 +16,22 @@
 
 ## Scenario 1 — Minimal setup
 
-One line in the agent builder enables child spans for every executed tool.
+One line in the agent builder enriches MAF tool telemetry for every executed tool.
 
 ```csharp
 using Microsoft.Agents.AI;
 using Melic.AgentFramework.Observability.Tools;
 
 AIAgent agent = new AIAgentBuilder(myInnerAgent)
-    .UseOpenTelemetry()   // creates the parent invoke_agent span
-    .UseToolTelemetry()   // emits agent_tool_call child spans
+    .UseOpenTelemetry()   // creates invoke_agent and execute_tool spans
+    .UseToolTelemetry()   // enriches execute_tool spans with bounded payload and retry attributes
     .Build();
 
 AgentSession session = await agent.CreateSessionAsync();
 AgentResponse response = await agent.RunAsync("Check order 42", session);
 
-// For each executed tool, the trace now includes:
-// - span name: agent_tool_call
-// - genai.tool.name
+// For each executed tool, the MAF execute_tool span now includes:
+// - MAF standard gen_ai.tool.name and gen_ai.tool.call.id
 // - genai.tool.input
 // - genai.tool.output
 // - OpenTelemetry span status
@@ -42,7 +41,7 @@ AgentResponse response = await agent.RunAsync("Check order 42", session);
 
 ## Scenario 2 — Disable payload capture
 
-If you only want timing, name, and status, disable input/output capture independently.
+If you only want MAF's built-in timing, name, call id, and status, disable input/output capture independently.
 
 ```csharp
 AIAgent agent = new AIAgentBuilder(myInnerAgent)
@@ -76,8 +75,9 @@ AIAgent agent = new AIAgentBuilder(myInnerAgent)
 
 ## Scenario 4 — Combine with Sessions telemetry
 
-The Tools and Sessions packages are independent. When both are present, tool spans remain children
-of `invoke_agent`, while the parent invocation span carries `genai.session.*` tags.
+The Tools and Sessions packages are independent. When both are present, the `invoke_agent` span
+carries `genai.session.*` tags and MAF `execute_tool` spans carry the `genai.tool.*` enrichment.
+carries `genai.session.*` tags and MAF `execute_tool` spans carry package-owned payload/retry enrichment.
 
 ```csharp
 using Melic.AgentFramework.Observability.Sessions;
@@ -86,7 +86,7 @@ using Melic.AgentFramework.Observability.Tools;
 AIAgent agent = new AIAgentBuilder(myInnerAgent)
     .UseOpenTelemetry()      // outermost: creates invoke_agent span
     .UseSessionTelemetry()   // enriches invoke_agent with genai.session.*
-    .UseToolTelemetry()      // emits agent_tool_call spans below invoke_agent
+    .UseToolTelemetry()      // enriches execute_tool spans below invoke_agent
     .Build();
 ```
 
@@ -94,28 +94,31 @@ AIAgent agent = new AIAgentBuilder(myInnerAgent)
 
 ## Scenario 5 — Register trace sources
 
-To see both the parent invocation span and the tool child spans, register both `ActivitySource`s.
+To see both the parent invocation span and MAF tool-call spans, register MAF's `ActivitySource`.
+Register the Tools source only if you also want fallback `agent_tool_call` spans when no MAF
+`execute_tool` span is current.
 
 ```csharp
 Sdk.CreateTracerProviderBuilder()
     .AddSource("Experimental.Microsoft.Agents.AI")
-    .AddSource("Melic.AgentFramework.Observability.Tools")
+    .AddSource("Melic.AgentFramework.Observability.Tools") // fallback spans only
     .Build();
 ```
 
-If you customize `ToolTelemetryOptions.ActivitySourceName`, register that custom source instead.
+If you customize `ToolTelemetryOptions.ActivitySourceName`, register that custom source for fallback spans.
 
 ---
 
 ## Telemetry emitted
 
-### Span
+### Target Span
 
 | Field | Example value |
 | --- | --- |
-| Name | `agent_tool_call` |
-| Kind | `Internal` |
-| Parent | current `invoke_agent` span when present |
+| Primary name | `execute_tool` |
+| Fallback name | `agent_tool_call` |
+| Fallback kind | `Internal` |
+| Parent | current `Activity` when fallback is needed |
 | Status | `OK` or `ERROR` |
 | Status description | Exception message on failure |
 
@@ -123,8 +126,8 @@ If you customize `ToolTelemetryOptions.ActivitySourceName`, register that custom
 
 | Attribute | Example value |
 | --- | --- |
-| `genai.tool.name` | `"get_order"` |
-| `genai.tool.call_id` | `"call_123"` |
+| `gen_ai.tool.name` | `"get_order"` |
+| `gen_ai.tool.call.id` | `"call_123"` |
 | `genai.tool.input` | `{"orderId":"42"}` |
 | `genai.tool.output` | `{"status":"shipped"}` |
 | `genai.tool.is_retry` | `true` |
@@ -134,16 +137,20 @@ If you customize `ToolTelemetryOptions.ActivitySourceName`, register that custom
 
 ## Troubleshooting
 
-### No `agent_tool_call` spans appear
+### `genai.tool.*` attributes do not appear
 
 - Confirm the agent was built with `.UseToolTelemetry()` before `.Build()`.
-- Confirm an `ActivityListener` or OTel tracer provider subscribes to the configured tool source name.
 - If the agent stack does not use `FunctionInvokingChatClient`, the middleware cannot intercept tool execution.
+
+### No fallback `agent_tool_call` spans appear
+
+- This is expected when MAF's `execute_tool` span is current; the package enriches that span instead.
+- Confirm an `ActivityListener` or OTel tracer provider subscribes to the configured fallback source name if you intentionally run without MAF `execute_tool` spans.
 
 ### Tool spans are roots instead of children
 
-- Ensure `.UseOpenTelemetry()` is registered so an `invoke_agent` span is current when the tool starts.
-- If no parent `Activity` is active, the tool span is still emitted best-effort as a root span.
+- Ensure `.UseOpenTelemetry()` is registered so MAF emits `execute_tool` spans.
+- If no MAF `execute_tool` span is active, the package emits a best-effort fallback `agent_tool_call` span.
 
 ### `genai.tool.input` or `genai.tool.output` is missing
 

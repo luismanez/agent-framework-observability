@@ -10,8 +10,9 @@ namespace Melic.AgentFramework.Observability.Tools;
 public static class ToolTelemetryAgentBuilderExtensions
 {
     /// <summary>
-    /// Adds tool-call telemetry to the agent pipeline. Each intercepted tool execution emits
-    /// an <c>agent_tool_call</c> span with structured <c>genai.tool.*</c> attributes.
+    /// Adds tool-call telemetry to the agent pipeline. Each intercepted tool execution enriches
+    /// MAF's current <c>execute_tool</c> span with structured <c>genai.tool.*</c> attributes, or
+    /// emits a fallback <c>agent_tool_call</c> span when no MAF tool span is current.
     /// </summary>
     /// <param name="builder">The <see cref="AIAgentBuilder"/> to configure.</param>
     /// <param name="configure">

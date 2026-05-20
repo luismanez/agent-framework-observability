@@ -7,10 +7,10 @@ namespace Melic.AgentFramework.Observability.Abstractions;
 /// </summary>
 public static class ToolAttributeNames
 {
-    /// <summary>Name of the invoked tool. Value: <c>genai.tool.name</c>.</summary>
+    /// <summary>Name of the invoked tool on fallback tool-call spans. Value: <c>genai.tool.name</c>.</summary>
     public static readonly string ToolName = "genai.tool.name";
 
-    /// <summary>Provider tool-call identifier, when available. Value: <c>genai.tool.call_id</c>.</summary>
+    /// <summary>Provider tool-call identifier on fallback tool-call spans, when available. Value: <c>genai.tool.call_id</c>.</summary>
     public static readonly string ToolCallId = "genai.tool.call_id";
 
     /// <summary>JSON-serialized tool input payload. Value: <c>genai.tool.input</c>.</summary>

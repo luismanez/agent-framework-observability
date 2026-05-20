@@ -9,6 +9,8 @@ namespace Melic.AgentFramework.Observability.Tools.Internal;
 internal sealed class ToolTelemetryAgent
 {
     internal const string ActivityName = "agent_tool_call";
+    internal const string MafOperationNameAttribute = "gen_ai.operation.name";
+    internal const string MafExecuteToolOperationName = "execute_tool";
 
     private readonly ToolTelemetryOptions _options;
     private readonly ActivitySource _activitySource;
@@ -30,40 +32,52 @@ internal sealed class ToolTelemetryAgent
     {
         ArgumentNullException.ThrowIfNull(next);
 
-        Activity? activity = null;
+        ActivityTarget activityTarget = default;
         ToolInvocationData? invocationData = null;
 
         try
         {
             invocationData = _mapper.ToToolInvocationData(context);
-            activity = _activitySource.StartActivity(ActivityName, ActivityKind.Internal);
-            EnrichAtStart(activity, invocationData);
+            activityTarget = ResolveActivityTarget();
+            EnrichAtStart(activityTarget, invocationData);
         }
         catch
         {
-            activity?.Dispose();
-            activity = null;
+            activityTarget.Dispose();
+            activityTarget = default;
         }
 
         try
         {
             object? result = await next(context, cancellationToken).ConfigureAwait(false);
-            TryEnrichSuccess(activity, result);
+            TryEnrichSuccess(activityTarget.Activity, result);
             return result;
         }
         catch (Exception exception)
         {
-            TryEnrichFailure(activity, exception);
+            TryEnrichFailure(activityTarget.Activity, exception);
             throw;
         }
         finally
         {
-            activity?.Dispose();
+            activityTarget.Dispose();
         }
     }
 
-    private void EnrichAtStart(Activity? activity, ToolInvocationData invocationData)
+    private ActivityTarget ResolveActivityTarget()
     {
+        Activity? current = Activity.Current;
+        if (IsMafExecuteToolActivity(current))
+        {
+            return new ActivityTarget(current, OwnsActivity: false);
+        }
+
+        return new ActivityTarget(_activitySource.StartActivity(ActivityName, ActivityKind.Internal), OwnsActivity: true);
+    }
+
+    private void EnrichAtStart(ActivityTarget activityTarget, ToolInvocationData invocationData)
+    {
+        Activity? activity = activityTarget.Activity;
         if (activity is null)
         {
             return;
@@ -71,10 +85,13 @@ internal sealed class ToolTelemetryAgent
 
         try
         {
-            activity.SetTag(ToolAttributeNames.ToolName, invocationData.ToolName);
-            if (invocationData.CallId is not null)
+            if (activityTarget.OwnsActivity)
             {
-                activity.SetTag(ToolAttributeNames.ToolCallId, invocationData.CallId);
+                activity.SetTag(ToolAttributeNames.ToolName, invocationData.ToolName);
+                if (invocationData.CallId is not null)
+                {
+                    activity.SetTag(ToolAttributeNames.ToolCallId, invocationData.CallId);
+                }
             }
 
             if (_options.CaptureInput)
@@ -143,6 +160,23 @@ internal sealed class ToolTelemetryAgent
         }
         catch
         {
+        }
+    }
+
+    private static bool IsMafExecuteToolActivity(Activity? activity)
+        => string.Equals(
+            activity?.GetTagItem(MafOperationNameAttribute) as string,
+            MafExecuteToolOperationName,
+            StringComparison.Ordinal);
+
+    private readonly record struct ActivityTarget(Activity? Activity, bool OwnsActivity) : IDisposable
+    {
+        public void Dispose()
+        {
+            if (OwnsActivity)
+            {
+                Activity?.Dispose();
+            }
         }
     }
 }

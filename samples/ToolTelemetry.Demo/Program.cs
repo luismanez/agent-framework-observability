@@ -13,11 +13,13 @@
 // Optional:
 //   APPLICATIONINSIGHTS_CONNECTION_STRING
 //       When set, traces are sent to App Insights instead of Console.
+//   MAF_ENABLE_SENSITIVE_DATA
+//       When true, MAF's built-in execute_tool spans include arguments/results.
 //
 // Scenarios:
 //   1. Default capture: input/output payloads plus status and duration
 //   2. Payload capture disabled: timing/status/name only
-//   3. Custom ActivitySource and bounded payloads
+//   3. Bounded payloads on MAF execute_tool spans
 //   4. Failing tool: ERROR status and structured error payload
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -33,7 +35,6 @@ using OpenTelemetry;
 using OpenTelemetry.Trace;
 
 const string DefaultToolSourceName = "Melic.AgentFramework.Observability.Tools";
-const string CustomToolSourceName = "ToolTelemetry.Demo.CustomTools";
 const string DemoSourceName = "ToolTelemetry.Demo";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -44,18 +45,21 @@ var apiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")
     ?? throw new InvalidOperationException("AZURE_OPENAI_API_KEY is required.");
 var deployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT_NAME") ?? "gpt-4o-mini";
 var appInsightsConnStr = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
+var enableMafSensitiveData = IsEnabled(Environment.GetEnvironmentVariable("MAF_ENABLE_SENSITIVE_DATA"));
 
 bool useAppInsights = !string.IsNullOrWhiteSpace(appInsightsConnStr);
 Banner(useAppInsights
     ? "Exporting tool telemetry to Azure Application Insights"
     : "Exporting tool telemetry to Console  (set APPLICATIONINSIGHTS_CONNECTION_STRING to switch to App Insights)");
+Console.WriteLine($"MAF sensitive data telemetry: {(enableMafSensitiveData ? "enabled" : "disabled")}");
+Console.WriteLine("Set MAF_ENABLE_SENSITIVE_DATA=true to also let MAF emit gen_ai.tool.call.arguments/result on execute_tool spans.");
+Console.WriteLine();
 
 // ── OpenTelemetry setup ───────────────────────────────────────────────────────
 
 var traceBuilder = Sdk.CreateTracerProviderBuilder()
     .AddSource("Experimental.Microsoft.Agents.AI")
     .AddSource(DefaultToolSourceName)
-    .AddSource(CustomToolSourceName)
     .AddSource(DemoSourceName);
 
 if (useAppInsights)
@@ -92,6 +96,7 @@ AIAgent defaultAgent = BuildAgent(
     chatClient,
     tools,
     name: "ToolTelemetryDefaultAgent",
+    enableMafSensitiveData,
     configureToolTelemetry: null);
 
 using (demoActivitySource.StartActivity("scenario.default_capture"))
@@ -100,7 +105,7 @@ using (demoActivitySource.StartActivity("scenario.default_capture"))
     Console.WriteLine(response.Text);
 }
 
-Console.WriteLine("Check span: agent_tool_call with genai.tool.input and genai.tool.output.");
+Console.WriteLine("Check MAF execute_tool span: enriched with genai.tool.input and genai.tool.output.");
 Console.WriteLine();
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -113,6 +118,7 @@ AIAgent noPayloadAgent = BuildAgent(
     chatClient,
     tools,
     name: "ToolTelemetryNoPayloadAgent",
+    enableMafSensitiveData,
     configureToolTelemetry: options =>
     {
         options.CaptureInput = false;
@@ -129,18 +135,18 @@ Console.WriteLine("Check span: tool name/status/duration are present; input/outp
 Console.WriteLine();
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Scenario 3 — Custom ActivitySource and bounded payloads
+// Scenario 3 — Bounded payloads on MAF execute_tool spans
 // ═════════════════════════════════════════════════════════════════════════════
 
-Banner("Scenario 3 — Custom ActivitySource and bounded payloads");
+Banner("Scenario 3 — Bounded payloads");
 
 AIAgent boundedPayloadAgent = BuildAgent(
     chatClient,
     tools,
     name: "ToolTelemetryBoundedPayloadAgent",
+    enableMafSensitiveData,
     configureToolTelemetry: options =>
     {
-        options.ActivitySourceName = CustomToolSourceName;
         options.MaxInputLength = 128;
         options.MaxOutputLength = 256;
     });
@@ -151,7 +157,7 @@ using (demoActivitySource.StartActivity("scenario.custom_source_bounded_payloads
     Console.WriteLine(response.Text);
 }
 
-Console.WriteLine($"Check span source: {CustomToolSourceName}; payload attributes remain valid JSON within configured limits.");
+Console.WriteLine("Check MAF execute_tool span: genai.tool.input/output remain valid JSON within configured limits.");
 Console.WriteLine();
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -164,6 +170,7 @@ AIAgent failureAgent = BuildAgent(
     chatClient,
     tools,
     name: "ToolTelemetryFailureAgent",
+    enableMafSensitiveData,
     configureToolTelemetry: null);
 
 using (demoActivitySource.StartActivity("scenario.failing_tool"))
@@ -184,9 +191,9 @@ Console.WriteLine();
 
 Banner("All scenarios complete");
 Console.WriteLine("Check your telemetry backend:");
-Console.WriteLine("  Console      : scroll up for agent_tool_call spans");
-Console.WriteLine("  App Insights : Transaction Search → filter by name == agent_tool_call");
-Console.WriteLine("                 Inspect customDimensions[\"genai.tool.name\"]");
+Console.WriteLine("  Console      : scroll up for execute_tool spans with MAF gen_ai.tool.* identity and package genai.tool.* enrichment");
+Console.WriteLine("  App Insights : Transaction Search → filter by name == execute_tool");
+Console.WriteLine("                 Inspect customDimensions[\"gen_ai.tool.name\"] for identity and genai.tool.input/output for package enrichment");
 
 if (useAppInsights)
 {
@@ -202,6 +209,7 @@ static AIAgent BuildAgent(
     IChatClient chatClient,
     IList<AITool> tools,
     string name,
+    bool enableMafSensitiveData,
     Action<ToolTelemetryOptions>? configureToolTelemetry)
 {
     AIAgent innerAgent = chatClient.AsAIAgent(
@@ -212,7 +220,7 @@ static AIAgent BuildAgent(
     return new AIAgentBuilder(innerAgent)
         .UseOpenTelemetry(configure: otel =>
         {
-            otel.EnableSensitiveData = true;
+            otel.EnableSensitiveData = enableMafSensitiveData;
         })
         .UseToolTelemetry(configureToolTelemetry)
         .Build();
@@ -272,6 +280,11 @@ static void Banner(string text)
     Console.WriteLine(line);
     Console.WriteLine();
 }
+
+static bool IsEnabled(string? value)
+    => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+    || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+    || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
 
 internal sealed record OrderStatus(string OrderId, string Status, string TrackingNumber, DateTimeOffset EstimatedDelivery);
 

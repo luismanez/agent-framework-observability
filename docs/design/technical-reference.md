@@ -7,7 +7,7 @@
 |---|---|
 | **Status** | Active |
 | **Author** | Luis Mañez |
-| **Last updated** | 2025-05 |
+| **Last updated** | 2026-05 |
 | **Targets** | `net8.0`, `net9.0`, `net10.0` |
 | **License** | MIT |
 
@@ -49,7 +49,7 @@ It produces, per agent invocation, a span named `invoke_agent <name>` with tags:
 Plus the chat-client tags inherited from `OpenTelemetryChatClient`:
 `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, etc.
 
-For tools, MAF itself adds nothing — the `execute_tool {tool_name}` spans (with `gen_ai.tool.name`, `gen_ai.tool.call.id`) are emitted by `Microsoft.Extensions.AI`'s `OpenTelemetryChatClient` when wrapping a `FunctionInvokingChatClient`.
+For tools, the MAF OpenTelemetry stack emits `execute_tool {tool_name}` spans through `Microsoft.Extensions.AI`'s `OpenTelemetryChatClient` when wrapping a `FunctionInvokingChatClient`. These spans use the official `gen_ai.*` semantic-convention namespace, including attributes such as `gen_ai.operation.name`, `gen_ai.tool.name`, `gen_ai.tool.call.id`, and, when sensitive data is enabled, tool arguments and results.
 
 A single `EnableSensitiveData` boolean controls whether prompts, completions, function arguments, and function results are written to telemetry.
 
@@ -59,11 +59,45 @@ A single `EnableSensitiveData` boolean controls whether prompts, completions, fu
 2. **No detection of streaming stalls** (gaps between tokens).
 3. **HTTP retries (429/503/timeouts) are not correlated** with the originating agent invocation.
 4. **No token usage limits / circuit breaker** at agent or session level.
-5. **Tool telemetry is per-call only** — no aggregation, no loop detection, no slowest-tool indicator on the parent span.
+5. **Tool telemetry is per-call only** — no bounded payload capture, retry markers, or package-owned tool attributes for cross-package dashboards.
 6. **No persistent session identity** — `AgentSession` has no stable ID exposed by MAF; correlating multi-turn conversations across invocations requires manual scaffolding.
 7. **Sensitive-data control is a single boolean** — no redaction pipeline, no PII masking.
 
-### 1.3 Non-goals
+### 1.3 Package value over MAF out of the box
+
+The goal of this library is not to replace MAF telemetry. Each package should make the telemetry MAF already emits easier to operate in production. The tables below are the package-level positioning contract: if a package does not add one of these practical improvements, it should not exist as a separate package.
+
+#### Sessions
+
+| Area | MAF out of the box | `Melic.AgentFramework.Observability.Sessions` improvement | Use the package when |
+|---|---|---|---|
+| Invocation span | Emits `invoke_agent` spans with `gen_ai.agent.*`, model, provider, and usage attributes when `UseOpenTelemetry()` is enabled. | Enriches each `invoke_agent` span with stable `genai.session.*` attributes. | You need to correlate multiple invocations as one logical conversation. |
+| Session identity | Provides `AgentSession`, but no stable telemetry session id contract across requests/processes. | Assigns or accepts a stable `genai.session.id` and persists it in session state. | Your app has conversation IDs, tickets, users, or workflow IDs that must be queryable in telemetry. |
+| Multi-turn counters | Token usage is per invocation. Cross-turn aggregates are left to the application. | Adds invocation index, session age, total input/output tokens, and total invocation count. | You need running totals per conversation, not just per model call. |
+| Business context | MAF does not manage custom conversation tags. | Adds session tags once and propagates them to every invocation span. | You want tags such as tenant, plan, region, or workflow on every span without repeating code. |
+| Visual trace grouping | Trace grouping follows the current request/activity context. Cross-request conversations are separate traces. | Optional Mode B creates an explicit `agent_session` parent span for bounded in-process sessions. | You want one visual trace tree for a short-lived chat, demo, batch unit, or workflow. |
+
+#### Tools
+
+| Area | MAF out of the box | `Melic.AgentFramework.Observability.Tools` improvement | Use the package when |
+|---|---|---|---|
+| Baseline tool visibility | Emits `execute_tool` spans with standard attributes such as `gen_ai.operation.name`, `gen_ai.tool.name`, `gen_ai.tool.call.id`, `gen_ai.tool.type`, and tool description. | No added value by itself; the package deliberately reuses this span and does not duplicate MAF's standard tool identity attributes on it. | Do not install this package only to get tool spans, tool names, or call ids; MAF already provides them. |
+| Arguments and results | Controlled by MAF's broad `EnableSensitiveData` switch. Payloads may be absent or large. | Captures input/output independently with `CaptureInput`, `CaptureOutput`, `MaxInputLength`, and `MaxOutputLength`, preserving valid JSON after truncation. | You need bounded payload diagnostics without enabling every MAF sensitive-data field globally. |
+| Retry/loop signals | Shows individual tool executions, but does not mark repeated call ids as retries. | Adds `genai.tool.is_retry` and `genai.tool.attempt_index` per invocation scope. | You need to spot repeated tool calls, retries, or model/tool loops quickly. |
+| Fallback instrumentation | Requires the MAF `execute_tool` span to be current for tool-span telemetry. | Emits `agent_tool_call` with `genai.tool.name` and optional `genai.tool.call_id` only when there is no MAF tool span to enrich. | You run a nonstandard pipeline where the function middleware executes without a current MAF `execute_tool` activity. |
+| Future safety controls | MAF has no package-specific redaction hook for tool payloads. | Provides a stable payload surface for future Redaction integration. | You want tool payload observability today with a path to policy-based masking later. |
+
+#### Redaction
+
+| Area | MAF out of the box | `Melic.AgentFramework.Observability.Redaction` improvement | Use the package when |
+|---|---|---|---|
+| Sensitive data switch | `EnableSensitiveData` is an all-or-nothing telemetry detail switch. | Planned processor pipeline can inspect and redact selected fields before export. | You need to keep useful telemetry while masking secrets, PII, or regulated data. |
+| Scope | MAF writes spans/logs; export-time policy is left to the application/backend. | Planned Activity and log processors apply the same redaction policy consistently before telemetry leaves the process. | You want one application-side policy for prompts, completions, tool args/results, and logs. |
+| Detectors | No built-in PII detector pipeline in MAF telemetry. | Planned standard redactors for email, credit cards, IBAN, JWTs, private keys, password-like fields, and optional high-risk detectors. | You need common detectors without hand-writing processors for each app. |
+| Failure behavior | Application-defined. | Planned fail-safe modes ensure redactor failures do not leak raw data by default. | You require predictable privacy behavior under redactor exceptions/timeouts. |
+| Extensibility | Custom processors are possible but app-specific. | Planned `IRedactor` extensibility, additional tag patterns, placeholders, and metrics. | You want reusable redaction components shared across agent apps. |
+
+### 1.4 Non-goals
 
 - **No model price catalog.** Pricing is too volatile and provider-fragmented to be maintained in this library. A "Bring Your Own Pricing Resolver" satellite package (`Melic.AgentFramework.Observability.Cost.Contracts`) is planned post-MVP.
 - **No pre-call token estimation.** No tokenizer dependency (TikToken, Sharpen, etc.). All token-based limits are post-hoc circuit breakers.
@@ -81,8 +115,8 @@ The library is split into independent packages. Each package can be installed an
 ```
 ┌──────────────────────────────────┐    ┌────────────────────────────────┐
 │  Observability.Performance       │    │  Observability.Tools           │
-│  - TTFT / stalls / retries       │    │  - Tool aggregates             │
-│  - Token-limit circuit breaker   │    │  - Loop detection              │
+│  - TTFT / stalls / retries       │    │  - execute_tool enrichment     │
+│  - Token-limit circuit breaker   │    │  - Bounded payloads / retries  │
 └──────────────┬───────────────────┘    └──────────────┬─────────────────┘
                │                                       │
                ▼                                       ▼
@@ -255,9 +289,11 @@ Meter: `Melic.AgentFramework.Observability.Performance` (configurable).
 
 ### 4.1 Responsibilities
 
-- Aggregate per-tool telemetry onto the parent `invoke_agent` span.
-- Emit per-tool metrics for dashboards.
-- Detect tool-call loops (same tool, same arguments, repeated within one invocation).
+- Enrich MAF's existing `execute_tool` span without duplicating MAF's standard `gen_ai.tool.*` identity attributes.
+- Capture tool inputs and outputs independently from MAF's global `EnableSensitiveData` switch.
+- Bound captured payload size while preserving valid JSON.
+- Mark repeated tool call identifiers with retry metadata within one agent invocation.
+- Emit a fallback `agent_tool_call` span only when no MAF `execute_tool` span is current.
 
 ### 4.2 Public API
 
@@ -273,66 +309,61 @@ public static class ToolTelemetryAgentBuilderExtensions
 
 public sealed class ToolTelemetryOptions
 {
-    /// <summary>Same tool + same args repeated this many times triggers a loop event. Default: 3.</summary>
-    public int LoopDetectionThreshold { get; set; } = 3;
+    /// <summary>Emit JSON-serialized tool input as genai.tool.input. Default: true.</summary>
+    public bool CaptureInput { get; set; } = true;
 
-    /// <summary>If true (default), arguments participate in the loop hash.</summary>
-    public bool IncludeArgumentsInHash { get; set; } = true;
+    /// <summary>Emit JSON-serialized tool output or error as genai.tool.output. Default: true.</summary>
+    public bool CaptureOutput { get; set; } = true;
 
-    /// <summary>Optional callback invoked when a loop is detected.</summary>
-    public Action<ToolLoopContext>? OnLoopDetected { get; set; }
+    /// <summary>Maximum final character length for genai.tool.input. Default: 2048.</summary>
+    public int MaxInputLength { get; set; } = 2048;
 
-    public string MeterName { get; set; } = "Melic.AgentFramework.Observability.Tools";
+    /// <summary>Maximum final character length for genai.tool.output. Default: 2048.</summary>
+    public int MaxOutputLength { get; set; } = 2048;
+
+    /// <summary>ActivitySource name for fallback agent_tool_call spans only.</summary>
+    public string ActivitySourceName { get; set; } = "Melic.AgentFramework.Observability.Tools";
 }
-
-public sealed record ToolLoopContext(
-    string ToolName,
-    int RepeatCount,
-    AIAgent Agent,
-    AgentSession? Session);
 ```
 
-### 4.3 Tags emitted on `invoke_agent` span
+### 4.3 Attributes added to the tool span
 
-| Tag | Type | Notes |
+The primary target is MAF's current `execute_tool` span. If that span is not current, the package creates a fallback `agent_tool_call` span from `ToolTelemetryOptions.ActivitySourceName` and writes the same attributes there.
+
+| Attribute | Type | Notes |
 |---|---|---|
-| `genai.tools.calls` | int | total count |
-| `genai.tools.failed` | int | count with status Error |
-| `genai.tools.distinct` | int | distinct tool names invoked |
-| `genai.tools.repeated_max` | int | max count of identical (tool+argsHash) within this invocation |
-| `genai.tools.slowest_name` | string | name of the slowest tool |
-| `genai.tools.slowest_ms` | long | duration of the slowest tool |
-| `genai.tools.total_ms` | long | sum of all tool durations |
+| `genai.tool.name` | string | Fallback `agent_tool_call` spans only. MAF `execute_tool` spans already carry `gen_ai.tool.name`. |
+| `genai.tool.call_id` | string | Fallback `agent_tool_call` spans only. MAF `execute_tool` spans already carry `gen_ai.tool.call.id`. Omitted when absent. |
+| `genai.tool.input` | string | Valid JSON input payload. Omitted when capture is disabled or serialization fails. |
+| `genai.tool.output` | string | Valid JSON output or structured error payload. Omitted when capture is disabled or serialization fails. |
+| `genai.tool.is_retry` | bool | `false` for first observed call id, `true` for repeated call ids within the invocation. |
+| `genai.tool.attempt_index` | int | 1-based occurrence count for the call id within the invocation. |
 
-### 4.4 Metrics
+### 4.4 Status and payload behavior
 
-Meter: `Melic.AgentFramework.Observability.Tools`.
-
-| Instrument | Type | Unit | Tags |
-|---|---|---|---|
-| `genai.tool.duration` | Histogram\<long\> | ms | `gen_ai.tool.name`, `gen_ai.agent.name`, `status` (`ok` \| `error`) |
-| `genai.tool.invocations` | Counter\<long\> | events | `gen_ai.tool.name`, `gen_ai.agent.name`, `status` |
-| `genai.tool.errors` | Counter\<long\> | events | `gen_ai.tool.name`, `gen_ai.agent.name`, `error.type` |
-| `genai.tool.loop_detected` | Counter\<long\> | events | `gen_ai.tool.name`, `gen_ai.agent.name` |
+- On success, the target span status is set to `OK`.
+- On exception, the target span status is set to `ERROR` with the exception message as status description, and `genai.tool.output` is a JSON object with at least `type` and `message` when output capture is enabled.
+- Empty input serializes as `{}`.
+- Null output serializes as `null`.
+- Oversized payloads are shrunk before final serialization so the final attribute remains valid JSON and fits the configured length.
+- Serialization failures omit the corresponding attribute and never affect tool execution.
 
 ### 4.5 Implementation notes
 
-- `ToolTelemetryAgent : DelegatingAIAgent` wraps the run. Inside it:
-  - Captures `Activity.Current` (the `invoke_agent` span) after delegating to the inner agent; aggregation happens just before the span ends.
-  - Subscribes a scoped `ActivityListener` filtered to operation name `execute_tool` for the duration of this run, scoped to children of the captured trace/span.
-- `argsHash`:
-  - Stable JSON serialization of arguments (sorted property names) → SHA-256 → hex prefix (16 chars).
-  - If `IncludeArgumentsInHash == false`, hash is just the tool name.
-  - Arguments are read from the `execute_tool` span's `gen_ai.tool.call.arguments` tag (only present if MAF's `EnableSensitiveData` is true). If absent, hash = tool name only.
-- Loop detection runs at end-of-invocation:
-  - Build `Dictionary<(toolName, argsHash), int>`.
-  - `repeated_max` = max value.
-  - If `repeated_max >= LoopDetectionThreshold` → emit `genai.tool.loop_detected` metric (tag = the offending tool), invoke `OnLoopDetected`.
+- `UseToolTelemetry()` uses MAF's public function-invocation middleware so it runs immediately around the actual tool execution.
+- `ToolInvocationMapper` converts `FunctionInvocationContext` into the Abstractions-owned `ToolInvocationData` shape.
+- `ToolTelemetryAgent` resolves the target span at tool-call start:
+    - If `Activity.Current` has `gen_ai.operation.name = execute_tool`, enrich that activity with payload and retry attributes only.
+    - Otherwise start fallback `agent_tool_call` from the configured `ActivitySource` and add fallback identity, payload, and retry attributes.
+- Retry tracking uses the current invocation scope. In the normal MAF shape, repeated `execute_tool` spans are grouped by their trace id and parent span id; fallback paths use the current parent `Activity` instance.
+- `ToolPayloadSerializer` uses `System.Text.Json` and a JSON DOM shrink pass to preserve valid JSON under configured limits.
 
 ### 4.6 Known limitations
 
-- Loop detection without arguments (when `EnableSensitiveData=false` or `IncludeArgumentsInHash=false`) degrades to "same tool name N times", which has more false positives. This is documented in the XML doc of `IncludeArgumentsInHash`.
-- Concurrent tool calls within the same invocation are correlated via the active trace; if the agent emits `execute_tool` spans on a detached `Activity` context, they will be missed. (Edge case; acceptable for v1.)
+- Bounded payload capture is not redaction. Disable capture or use the future Redaction package when payloads may contain sensitive data.
+- Retry detection requires a non-empty tool call id. Without one, retry attributes are omitted.
+- `ActivitySourceName` affects fallback spans only; it does not change MAF's `execute_tool` source.
+- If MAF changes the marker used to identify `execute_tool` spans, the enrichment target detection may need to be updated.
 
 ---
 
@@ -651,7 +682,7 @@ Meter: `Melic.AgentFramework.Observability.Redaction`.
 
 ### 7.1 Telemetry attribute naming conventions
 
-- Library-defined attributes use the `genai.` prefix (no underscore in second segment), e.g., `genai.session.id`, `genai.tools.calls`. This separates them from the official `gen_ai.*` semantic conventions while keeping them grouped lexicographically in dashboards.
+- Library-defined attributes use the `genai.` prefix (no underscore in second segment), e.g., `genai.session.id`, `genai.tool.input`. This separates them from the official `gen_ai.*` semantic conventions while keeping them grouped lexicographically in dashboards.
 - If the OTel GenAI SemConv adopts an equivalent attribute in a future release, the library will emit **both** the standard one and its `genai.*` counterpart for one minor version, then deprecate the latter with a documentation notice.
 
 ### 7.2 Cardinality discipline
@@ -694,7 +725,7 @@ All packages follow a consistent registration pattern:
 Each package exposes test seams:
 
 - **Performance**: a fake `IAsyncEnumerable<AgentResponseUpdate>` driver lets tests assert TTFT/stalls deterministically.
-- **Tools**: synthetic `execute_tool` activities created in tests verify aggregation and loop detection.
+- **Tools**: synthetic `execute_tool` activities created in tests verify in-place enrichment, bounded payload capture, retry detection, and fallback span behavior.
 - **Sessions**: an in-memory `AgentSession` subclass exercises StateBag persistence.
 - **Redaction**: each redactor tested in isolation; the pipeline tested with synthetic activities.
 
@@ -736,8 +767,10 @@ var agent = chatClient
     })
     .UseToolTelemetry(o =>
     {
-        o.LoopDetectionThreshold = 3;
-        o.OnLoopDetected = ctx => Console.WriteLine($"Loop on {ctx.ToolName}");
+        o.MaxInputLength = 1024;
+        o.MaxOutputLength = 2048;
+        o.CaptureInput = true;
+        o.CaptureOutput = true;
     })
     .UseSessionTelemetry(o => o.EnableSessionSpan = true)
     .Build();
@@ -782,7 +815,7 @@ await using (agent.BeginSessionTrace(session))
 | D2 | Token limits implemented as post-hoc circuit breakers (next-call enforcement). Default action: `Warn`. |
 | D3 | Performance and Tools are separate packages. |
 | D4 | Streaming stall threshold default: `1s`. |
-| D5 | Loop detection includes arguments by default. Threshold: `3`. |
+| D5 | Tools enriches MAF `execute_tool` spans in place and creates `agent_tool_call` only as a fallback. |
 | D6 | `SessionId` auto-generated and persisted in `StateBag`; overridable via `AssignSessionId`. |
 | D7 | Mode B (session span) is included in MVP, opt-in. |
 | D8 | Token aggregates enabled by default. |

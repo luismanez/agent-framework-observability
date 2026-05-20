@@ -50,22 +50,22 @@
 
 ## Phase 3: User Story 1 - Tool Execution Visibility (Priority: P1) MVP
 
-**Goal**: Every intercepted tool invocation emits an `agent_tool_call` span with tool name, call id when available, `ActivityKind.Internal`, status, duration, and parent relationship to the current `invoke_agent` span.
+**Goal**: Every intercepted tool invocation enriches MAF's current `execute_tool` span with tool name, call id when available, status, bounded payloads, and retry data; fallback `agent_tool_call` spans are emitted only when no MAF tool span is current.
 
 **Independent Test**: Configure tool telemetry on an agent with one or more tools and verify emitted spans under a captured parent activity without requiring input/output capture or retry detection.
 
 ### Tests for User Story 1
 
-- [X] T015 [P] [US1] Add integration test for successful delayed single tool call child span, tool name, `ActivityKind.Internal`, Activity status OK, parent id, and wall-clock duration in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
+- [X] T015 [P] [US1] Add integration test for successful delayed single tool call enriching MAF `execute_tool` with tool name, Activity status OK, and wall-clock duration in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
 - [X] T016 [P] [US1] Add integration test for failing tool call Activity status ERROR and status description in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
-- [X] T017 [P] [US1] Add integration test for three sequential tool calls producing three independent `agent_tool_call` spans in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
+- [X] T017 [P] [US1] Add integration test for three sequential tool calls enriching three independent MAF `execute_tool` spans in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
 - [X] T018 [P] [US1] Add integration tests proving no spans are emitted when `.UseToolTelemetry()` is not registered and root spans are emitted when no parent Activity is current in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs
 
 ### Implementation for User Story 1
 
 - [X] T019 [US1] Implement `UseToolTelemetry()` builder extension using MAF public function-invocation middleware in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryAgentBuilderExtensions.cs
-- [X] T020 [US1] Implement `ToolTelemetryAgent` callback orchestration to start `agent_tool_call` spans around `next(context, cancellationToken)` in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
-- [X] T021 [US1] Add span attributes `genai.tool.name` and optional `genai.tool.call_id` during span start in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T020 [US1] Implement `ToolTelemetryAgent` callback orchestration to enrich current MAF `execute_tool` spans or start fallback `agent_tool_call` spans around `next(context, cancellationToken)` in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
+- [X] T021 [US1] Add fallback span attributes `genai.tool.name` and optional `genai.tool.call_id` without duplicating MAF `gen_ai.tool.*` identity attributes in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
 - [X] T022 [US1] Set tool Activity status OK/ERROR and status description while preserving original tool result or exception in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
 - [X] T023 [US1] Ensure all tool telemetry failures are swallowed and do not alter tool execution outcome in src/Melic.AgentFramework.Observability.Tools/Internal/ToolTelemetryAgent.cs
 - [X] T024 [US1] Export public API from the intended namespace with XML docs matching contracts/tools-api.md in src/Melic.AgentFramework.Observability.Tools/ToolTelemetryAgentBuilderExtensions.cs
@@ -133,7 +133,7 @@
 ### Tests for User Story 4
 
 - [X] T043 [P] [US4] Add integration test for default `.UseToolTelemetry()` activation with no options in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
-- [X] T044 [P] [US4] Add integration test for custom `ActivitySourceName` producing spans from the configured source in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
+- [X] T044 [P] [US4] Add integration test for custom `ActivitySourceName` producing fallback spans from the configured source in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
 - [X] T045 [P] [US4] Add integration test combining `.UseOpenTelemetry()`, `.UseSessionTelemetry()`, and `.UseToolTelemetry()` without compile-time Tools-to-Sessions dependency in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
 - [X] T046 [P] [US4] Add project dependency assertion ensuring Tools references Abstractions but not Sessions in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryConfigurationTests.cs
 
@@ -206,9 +206,9 @@
 ## Parallel Example: User Story 1
 
 ```text
-Task: "T015 [P] [US1] Add integration test for successful single tool call child span, tool name, ActivityKind.Internal, status OK, and parent id in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
+Task: "T015 [P] [US1] Add integration test for successful single tool call enriching MAF execute_tool with tool name, status OK, and duration in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
 Task: "T016 [P] [US1] Add integration test for failing tool call Activity status ERROR and status description in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
-Task: "T017 [P] [US1] Add integration test for three sequential tool calls producing three independent agent_tool_call spans in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
+Task: "T017 [P] [US1] Add integration test for three sequential tool calls enriching three independent MAF execute_tool spans in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
 Task: "T018 [P] [US1] Add integration test proving no spans are emitted when .UseToolTelemetry() is not registered in tests/Melic.AgentFramework.Observability.Tools.Tests/ToolTelemetryVisibilityTests.cs"
 ```
 
@@ -238,7 +238,7 @@ Task: "T038 [P] [US3] Add integration test proving repeated tool call id emits g
 2. Complete Phase 2: Foundational constants/options/mapping primitives.
 3. Complete Phase 3: User Story 1.
 4. Stop and validate: run `dotnet test -c Release --filter "FullyQualifiedName~ToolTelemetryVisibility"`.
-5. Demo trace shape: `invoke_agent` parent span with `agent_tool_call` child spans.
+5. Demo trace shape: `invoke_agent` trace containing MAF `execute_tool` spans enriched with `genai.tool.*`; fallback `agent_tool_call` spans appear only without MAF `execute_tool`.
 
 ### Incremental Delivery
 
@@ -263,10 +263,10 @@ With multiple developers:
 
 ## Independent Test Criteria Summary
 
-- **US1**: Captured trace contains one `agent_tool_call` child span per tool call with correct name, call id behavior, `ActivityKind.Internal`, OK/ERROR status, and no spans when disabled.
+- **US1**: Captured trace contains one enriched MAF `execute_tool` span per tool call with correct name, call id behavior, OK/ERROR status, no duplicate fallback span, and no enrichment when disabled.
 - **US2**: Captured spans contain valid JSON input/output when enabled, omit them when disabled or serialization fails, represent errors as `{ type, message }`, and preserve tool results.
 - **US3**: Repeated call ids within one parent invocation produce retry markers and attempt indexes; different ids, missing ids, and new parent invocations do not leak counts.
-- **US4**: `.UseToolTelemetry()` works with defaults, custom source names are honored, Tools remains independent from Sessions, and combined package registration works.
+- **US4**: `.UseToolTelemetry()` works with defaults, custom fallback source names are honored, Tools remains independent from Sessions, and combined package registration works.
 
 ---
 

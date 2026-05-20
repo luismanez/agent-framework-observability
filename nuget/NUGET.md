@@ -10,7 +10,7 @@ optional session-scoped parent spans, and tool-call span enrichment — all with
 |---|---|
 | `Melic.AgentFramework.Observability.Abstractions` | Shared attribute constants (`SessionAttributeNames`, `ToolAttributeNames`) and adapter contracts |
 | `Melic.AgentFramework.Observability.Sessions` | Session lifecycle tracing — enriches every `invoke_agent` span with `genai.session.*` tags |
-| `Melic.AgentFramework.Observability.Tools` | Tool-call tracing — emits one `agent_tool_call` span per intercepted tool invocation |
+| `Melic.AgentFramework.Observability.Tools` | Tool-call tracing — enriches MAF `execute_tool` spans with bounded payload and retry attributes |
 
 ## Quick Start
 
@@ -22,7 +22,7 @@ using Melic.AgentFramework.Observability.Tools;
 var agent = new AIAgentBuilder(innerAgent)
     .UseOpenTelemetry()       // outermost — creates the invoke_agent span
     .UseSessionTelemetry()    // innermost — enriches the open span
-    .UseToolTelemetry()       // emits agent_tool_call spans for tools
+    .UseToolTelemetry()       // enriches execute_tool spans for tools
     .Build();
 
 // Each AgentSession gets a stable, auto-generated session ID automatically.
@@ -40,7 +40,7 @@ session.SetSessionTag("user.tier", "premium");
 - **Token aggregation** — `genai.session.input_tokens` and `genai.session.output_tokens` accumulate across all turns
 - **Custom tags** — attach arbitrary `genai.*` business context to every span in a session
 - **Mode B tracing** — opt-in explicit parent span via `BeginSessionTrace()` for visual trace trees
-- **Tool-call spans** — one `agent_tool_call` span per intercepted tool invocation
+- **Tool-call enrichment** — adds stable `genai.tool.*` attributes to MAF `execute_tool` spans
 - **Payload diagnostics** — optional valid-JSON input and output capture with bounded size
 - **Retry detection** — repeated tool call ids are marked with retry attributes within the current invocation
 - **OTel-only dependencies** — depends only on `OpenTelemetry.Api`, no MAF internals

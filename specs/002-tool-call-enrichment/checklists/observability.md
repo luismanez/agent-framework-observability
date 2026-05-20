@@ -16,7 +16,7 @@
 
 ## Requirement Clarity
 
-- [x] CHK006 Is the meaning of "child span" precise enough to verify whether `agent_tool_call` must be a direct child of `invoke_agent` or merely a descendant? [Clarity, Ambiguity, Spec §User Story 1, Spec §FR-002]
+- [x] CHK006 Is the target span behavior precise enough to verify whether Tools enriches MAF `execute_tool` or emits fallback `agent_tool_call`? [Clarity, Ambiguity, Spec §User Story 1, Spec §FR-002]
 - [x] CHK007 Is the requirement for wall-clock duration specific enough to determine the exact timing boundaries around tool execution and exception handling? [Clarity, Spec §FR-010]
 - [x] CHK008 Is the valid-JSON truncation behavior defined clearly enough for reviewers to distinguish acceptable shrinking from lossy or invalid payload clipping? [Clarity, Spec §FR-006, Spec §FR-007, Spec §Clarifications]
 - [x] CHK009 Is the required error payload shape in `genai.tool.output` sufficiently explicit about mandatory fields, optional fields, and truncation expectations? [Clarity, Spec §FR-008, Spec §Clarifications]
@@ -49,7 +49,7 @@
 
 ## Non-Functional Requirements
 
-- [x] CHK024 Are the performance requirements specific enough to judge acceptable overhead for one child span plus payload serialization per tool call? [Non-Functional, Ambiguity, Spec §Performance Goals]
+- [x] CHK024 Are the performance requirements specific enough to judge acceptable overhead for in-place `execute_tool` enrichment plus payload serialization per tool call? [Non-Functional, Ambiguity, Spec §Performance Goals]
 - [x] CHK025 Are privacy and sensitive-data requirements explicit enough about what is intentionally unfiltered in this package and what is deferred to the future Redaction package? [Non-Functional, Spec §Assumptions, Spec §Quickstart]
 - [x] CHK026 Are reliability requirements sufficiently explicit about silent failure behavior for span creation, attribute writing, retry bookkeeping, and serializer failures? [Non-Functional, Spec §FR-019]
 

@@ -25,7 +25,7 @@ public static AIAgentBuilder UseToolTelemetry(
     return builder.Use(async (agent, context, next, cancellationToken) =>
     {
         // map context -> snapshot
-        // create child span
+        // enrich current MAF execute_tool span, or create fallback span
         // call next(context, cancellationToken)
         // enrich result/error
     });
@@ -40,16 +40,18 @@ public static AIAgentBuilder UseToolTelemetry(
 
 ## R-002 — Source of tool metadata (name, call id, input)
 
-**Question**: Which public members expose the metadata needed for `genai.tool.*` attributes?
+**Question**: Which public members expose the metadata needed for package enrichment attributes?
 
 **Decision**: Read tool metadata from `FunctionInvocationContext.Function`, `FunctionInvocationContext.Arguments`, and `FunctionInvocationContext.CallContent`.
 
 **Rationale**: MAF populates `FunctionInvocationContext` with the invoked `AIFunction`, the concrete `AIFunctionArguments`, and a `FunctionCallContent` carrying at least `Name`, `CallId`, and normalized arguments. This is the minimal stable surface required by the spec.
 
 **Attribute mapping**:
-- `genai.tool.name` → `context.Function.Name`, falling back to `context.CallContent.Name`
-- `genai.tool.call_id` → `context.CallContent.CallId` when non-empty
+- Fallback `genai.tool.name` → `context.Function.Name`, falling back to `context.CallContent.Name`
+- Fallback `genai.tool.call_id` and retry tracking id → `context.CallContent.CallId` when non-empty
 - `genai.tool.input` → serialized `context.Arguments` / `context.CallContent.Arguments`
+
+MAF `execute_tool` spans already carry standard `gen_ai.tool.name` and `gen_ai.tool.call.id`, so the package must not duplicate those identity attributes under `genai.*` on MAF spans.
 
 **Alternatives considered**:
 - Reading from raw `ChatMessage` content later in the pipeline — rejected; loses direct execution context and increases coupling to message-shape details.
@@ -112,14 +114,14 @@ internal sealed class InvocationAttemptRegistry
 
 ## R-005 — Span creation and parent relationship
 
-**Question**: How should `agent_tool_call` spans be created so they appear under `invoke_agent` when available but still work without `UseOpenTelemetry()`?
+**Question**: How should tool telemetry avoid duplicating MAF `execute_tool` spans while still working without MAF OpenTelemetry?
 
-**Decision**: Start spans from a dedicated `ActivitySource` (`Melic.AgentFramework.Observability.Tools` by default) using `ActivityKind.Internal`, relying on `Activity.Current` at tool-call start as the parent when present.
+**Decision**: If `Activity.Current` is MAF's `execute_tool` span (`gen_ai.operation.name = execute_tool`), enrich that existing span. Otherwise, start a fallback `agent_tool_call` span from a dedicated `ActivitySource` (`Melic.AgentFramework.Observability.Tools` by default) using `ActivityKind.Internal`, relying on `Activity.Current` at tool-call start as the parent when present.
 
-**Rationale**: This matches the spec and mirrors how the Sessions package enriches the current invocation span. When `UseOpenTelemetry()` is outermost, the current activity is the `invoke_agent` span and tool spans become children automatically. If no current activity exists, `StartActivity` still creates a root span or returns `null` when there are no listeners; both outcomes are acceptable and best-effort.
+**Rationale**: MAF already emits an `execute_tool` span that Application Insights understands. The package should add differentiated value to that span — bounded payloads, retry markers, and future redaction hooks — rather than visually duplicating the trace. If no current MAF tool span exists, `StartActivity` still creates a fallback span or returns `null` when there are no listeners; both outcomes are acceptable and best-effort.
 
 **Alternatives considered**:
-- Reusing the MAF `Experimental.Microsoft.Agents.AI` source for tool spans — rejected; this package needs its own source for selective subscription and package independence.
+- Always creating a nested `agent_tool_call` span — rejected; it duplicates MAF telemetry and makes App Insights traces noisier.
 
 ---
 

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+using System.Diagnostics;
 using Melic.AgentFramework.Observability.Tools.Internal;
 using Melic.AgentFramework.Observability.Tools.Tests.Helpers;
 using Microsoft.Agents.AI;
@@ -25,6 +26,21 @@ internal static class ToolTelemetryTestHelpers
 
     internal static ToolTelemetryAgent CreateAgent(string sourceName = "Melic.AgentFramework.Observability.Tools")
         => new(new ToolTelemetryOptions { ActivitySourceName = sourceName });
+
+    internal static Activity StartMafExecuteToolActivity(ActivitySource activitySource, string toolName = "get_order", string? callId = "call_123")
+    {
+        Activity activity = activitySource.StartActivity(toolName, ActivityKind.Internal)
+            ?? throw new InvalidOperationException("The test MAF execute_tool activity was not created.");
+
+        activity.SetTag(ToolTelemetryAgent.MafOperationNameAttribute, ToolTelemetryAgent.MafExecuteToolOperationName);
+        activity.SetTag("gen_ai.tool.name", toolName);
+        if (callId is not null)
+        {
+            activity.SetTag("gen_ai.tool.call.id", callId);
+        }
+
+        return activity;
+    }
 
     internal static ValueTask<object?> InvokeAsync(
         ToolTelemetryAgent telemetryAgent,

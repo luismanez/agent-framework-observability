@@ -32,7 +32,8 @@ public sealed class ToolTelemetryOptions
     public int MaxOutputLength { get; set; } = 2048;
 
     /// <summary>
-    /// Gets or sets the <see cref="System.Diagnostics.ActivitySource"/> name used for <c>agent_tool_call</c> spans.
+    /// Gets or sets the <see cref="System.Diagnostics.ActivitySource"/> name used for fallback <c>agent_tool_call</c> spans
+    /// when no MAF <c>execute_tool</c> span is current.
     /// Default: <c>"Melic.AgentFramework.Observability.Tools"</c>.
     /// </summary>
     public string ActivitySourceName { get; set; } = "Melic.AgentFramework.Observability.Tools";

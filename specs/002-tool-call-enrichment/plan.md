@@ -6,7 +6,7 @@
 
 ## Summary
 
-Implement `Melic.AgentFramework.Observability.Tools` as a tool-invocation telemetry package for Microsoft Agent Framework. The package will register through `AIAgentBuilder.UseToolTelemetry()` and use MAF's public function-invocation middleware (`AIAgentBuilder.Use(Func<AIAgent, FunctionInvocationContext, ...>)`) behind Abstractions-defined adapter contracts to create an `agent_tool_call` span per tool execution, capture tool name/call id/input/output, mark retries within the current `invoke_agent` span, and keep all telemetry logic best-effort and isolated from business behavior.
+Implement `Melic.AgentFramework.Observability.Tools` as a tool-invocation telemetry package for Microsoft Agent Framework. The package will register through `AIAgentBuilder.UseToolTelemetry()` and use MAF's public function-invocation middleware (`AIAgentBuilder.Use(Func<AIAgent, FunctionInvocationContext, ...>)`) behind Abstractions-defined adapter contracts to enrich MAF's current `execute_tool` span when present, create a fallback `agent_tool_call` span only when no MAF tool span is current, capture bounded tool name/call id/input/output, mark retries within the current `invoke_agent` span, and keep all telemetry logic best-effort and isolated from business behavior.
 
 ## Technical Context
 
@@ -29,13 +29,13 @@ Implement `Melic.AgentFramework.Observability.Tools` as a tool-invocation teleme
 
 **Project Type**: Library package in the `Melic.AgentFramework.Observability.*` suite.
 
-**Performance Goals**: One child span per tool invocation with low constant overhead; no extra agent round-trip; no observable change in tool results or invocation completion when telemetry fails.
+**Performance Goals**: No duplicate span when MAF already emits `execute_tool`; low constant overhead for enrichment; no extra agent round-trip; no observable change in tool results or invocation completion when telemetry fails.
 
 **Constraints**:
 
 - Public APIs only — no internal MAF types, reflection, or source generators
 - Custom attributes must use `genai.tool.*` and be declared in Abstractions before use
-- Tool spans must use `ActivityKind.Internal`
+- Fallback tool spans must use `ActivityKind.Internal`
 - Captured input/output must remain valid JSON after truncation and stay within configured limits
 - Package must not depend on `Sessions` or other siblings beyond `Abstractions`
 - All failures in telemetry path must be swallowed silently

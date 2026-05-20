@@ -27,8 +27,9 @@ implementation details and subject to change without notice.
 public static class ToolTelemetryAgentBuilderExtensions
 {
     /// <summary>
-    /// Adds tool-call telemetry to the agent pipeline. Each intercepted tool execution emits
-    /// an <c>agent_tool_call</c> child span with structured <c>genai.tool.*</c> attributes.
+    /// Adds tool-call telemetry to the agent pipeline. Each intercepted tool execution enriches
+    /// MAF's current <c>execute_tool</c> span with structured <c>genai.tool.*</c> attributes, or
+    /// emits a fallback <c>agent_tool_call</c> span when no MAF tool span is current.
     /// </summary>
     /// <param name="builder">The <see cref="AIAgentBuilder"/> to configure.</param>
     /// <param name="configure">
@@ -76,7 +77,8 @@ public sealed class ToolTelemetryOptions
     public int MaxOutputLength { get; set; } = 2048;
 
     /// <summary>
-    /// Gets or sets the <see cref="ActivitySource"/> name used for <c>agent_tool_call</c> spans.
+    /// Gets or sets the <see cref="ActivitySource"/> name used for fallback <c>agent_tool_call</c> spans
+    /// when no MAF <c>execute_tool</c> span is current.
     /// Default: <c>"Melic.AgentFramework.Observability.Tools"</c>.
     /// </summary>
     public string ActivitySourceName { get; set; } = "Melic.AgentFramework.Observability.Tools";
@@ -95,6 +97,7 @@ public sealed class ToolTelemetryOptions
 /// </summary>
 public static class ToolAttributeNames
 {
+    // Fallback agent_tool_call identity attributes. MAF execute_tool spans already use gen_ai.tool.*.
     public static readonly string ToolName     = "genai.tool.name";
     public static readonly string ToolCallId   = "genai.tool.call_id";
     public static readonly string ToolInput    = "genai.tool.input";
@@ -110,7 +113,8 @@ public static class ToolAttributeNames
 
 - `UseToolTelemetry()` is optional and opt-in.
 - When not configured, agent and tool behavior remain unchanged.
-- Tool spans use `ActivityKind.Internal`.
+- MAF `execute_tool` spans are enriched in place when current.
+- Fallback tool spans use `ActivityKind.Internal`.
 - Input and output capture are independently configurable.
 - All tool telemetry is best-effort: serialization or span-writing failures never alter tool execution results.
 - Retry tracking is scoped to a single parent `invoke_agent` span and only applies when a non-empty tool `call_id` is available.
@@ -120,5 +124,5 @@ public static class ToolAttributeNames
 ## Breaking Change Policy
 
 - No public type, method, or property may be removed or have its signature changed in a patch or minor release.
-- The default `ActivitySourceName` (`"Melic.AgentFramework.Observability.Tools"`) is stable once published.
+- The default fallback `ActivitySourceName` (`"Melic.AgentFramework.Observability.Tools"`) is stable once published.
 - `ToolAttributeNames` values are stable contract surface for telemetry consumers and must not be renamed in a patch or minor release.

@@ -10,67 +10,95 @@ namespace Melic.AgentFramework.Observability.Tools.Tests;
 public sealed class ToolTelemetryVisibilityTests
 {
     private const string SourceName = "visibility-source";
+    private const string MafSourceName = "maf-visibility-source";
 
     [Fact]
-    public async Task Successful_Delayed_Tool_Call_Emits_Child_Span_With_Status_And_Duration()
+    public async Task Successful_Delayed_Tool_Call_Enriches_Maf_ExecuteTool_Activity()
     {
-        using var capture = new ActivityCapture(SourceName);
-        using var parent = new Activity("invoke_agent").Start();
+        using var mafCapture = new ActivityCapture(MafSourceName);
+        using var fallbackCapture = new ActivityCapture(SourceName);
+        using var mafSource = new ActivitySource(MafSourceName);
         var telemetryAgent = ToolTelemetryTestHelpers.CreateAgent(SourceName);
         var context = ToolTelemetryTestHelpers.CreateContext();
+        object? result;
 
-        object? result = await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, context, async () =>
+        using (ToolTelemetryTestHelpers.StartMafExecuteToolActivity(mafSource))
         {
-            await Task.Delay(25).ConfigureAwait(false);
-            return "ok";
-        });
+            result = await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, context, async () =>
+            {
+                await Task.Delay(25).ConfigureAwait(false);
+                return "ok";
+            });
+        }
 
-        Activity span = Assert.Single(capture.Completed);
+        Activity span = Assert.Single(mafCapture.Completed);
+        Assert.Empty(fallbackCapture.Completed);
         Assert.Equal("ok", result);
-        Assert.Equal(ToolTelemetryAgent.ActivityName, span.OperationName);
         Assert.Equal(ActivityKind.Internal, span.Kind);
-        Assert.Equal(parent.Id, span.ParentId);
+        Assert.Equal("get_order", span.OperationName);
         Assert.Equal(ActivityStatusCode.Ok, span.Status);
         Assert.Null(span.StatusDescription);
-        Assert.Equal("get_order", span.GetTagItem(ToolAttributeNames.ToolName));
-        Assert.Equal("call_123", span.GetTagItem(ToolAttributeNames.ToolCallId));
+        Assert.Equal("get_order", span.GetTagItem("gen_ai.tool.name"));
+        Assert.Equal("call_123", span.GetTagItem("gen_ai.tool.call.id"));
+        Assert.Null(span.GetTagItem(ToolAttributeNames.ToolName));
+        Assert.Null(span.GetTagItem(ToolAttributeNames.ToolCallId));
         Assert.True(span.Duration >= TimeSpan.FromMilliseconds(20));
     }
 
     [Fact]
-    public async Task Failing_Tool_Call_Emits_Error_Status_And_Preserves_Exception()
+    public async Task Failing_Tool_Call_Enriches_Maf_ExecuteTool_And_Preserves_Exception()
     {
-        using var capture = new ActivityCapture(SourceName);
+        using var mafCapture = new ActivityCapture(MafSourceName);
+        using var fallbackCapture = new ActivityCapture(SourceName);
+        using var mafSource = new ActivitySource(MafSourceName);
         var telemetryAgent = ToolTelemetryTestHelpers.CreateAgent(SourceName);
         var context = ToolTelemetryTestHelpers.CreateContext();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, context, () => throw new InvalidOperationException("Missing order id")));
+        InvalidOperationException exception;
+        using (ToolTelemetryTestHelpers.StartMafExecuteToolActivity(mafSource))
+        {
+            exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, context, () => throw new InvalidOperationException("Missing order id")));
+        }
 
-        Activity span = Assert.Single(capture.Completed);
+        Activity span = Assert.Single(mafCapture.Completed);
+        Assert.Empty(fallbackCapture.Completed);
         Assert.Equal("Missing order id", exception.Message);
         Assert.Equal(ActivityStatusCode.Error, span.Status);
         Assert.Equal("Missing order id", span.StatusDescription);
     }
 
     [Fact]
-    public async Task Three_Sequential_Tool_Calls_Produce_Three_Independent_Spans()
+    public async Task Three_Sequential_Tool_Calls_Enrich_Three_Independent_Maf_Activities()
     {
-        using var capture = new ActivityCapture(SourceName);
-        using var parent = new Activity("invoke_agent").Start();
+        using var mafCapture = new ActivityCapture(MafSourceName);
+        using var fallbackCapture = new ActivityCapture(SourceName);
+        using var mafSource = new ActivitySource(MafSourceName);
         var telemetryAgent = ToolTelemetryTestHelpers.CreateAgent(SourceName);
 
-        await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, ToolTelemetryTestHelpers.CreateContext("first", "1"), () => new("one"));
-        await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, ToolTelemetryTestHelpers.CreateContext("second", "2"), () => new("two"));
-        await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, ToolTelemetryTestHelpers.CreateContext("third", "3"), () => new("three"));
+        using (ToolTelemetryTestHelpers.StartMafExecuteToolActivity(mafSource, "first", "1"))
+        {
+            await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, ToolTelemetryTestHelpers.CreateContext("first", "1"), () => new("one"));
+        }
 
-        Assert.Equal(3, capture.Completed.Count);
-        Assert.Equal(["first", "second", "third"], capture.Completed.Select(span => span.GetTagItem(ToolAttributeNames.ToolName)));
-        Assert.All(capture.Completed, span => Assert.Equal(parent.Id, span.ParentId));
+        using (ToolTelemetryTestHelpers.StartMafExecuteToolActivity(mafSource, "second", "2"))
+        {
+            await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, ToolTelemetryTestHelpers.CreateContext("second", "2"), () => new("two"));
+        }
+
+        using (ToolTelemetryTestHelpers.StartMafExecuteToolActivity(mafSource, "third", "3"))
+        {
+            await ToolTelemetryTestHelpers.InvokeAsync(telemetryAgent, ToolTelemetryTestHelpers.CreateContext("third", "3"), () => new("three"));
+        }
+
+        Assert.Equal(3, mafCapture.Completed.Count);
+        Assert.Empty(fallbackCapture.Completed);
+        Assert.Equal(["first", "second", "third"], mafCapture.Completed.Select(span => span.GetTagItem("gen_ai.tool.name")));
+        Assert.All(mafCapture.Completed, span => Assert.Null(span.GetTagItem(ToolAttributeNames.ToolName)));
     }
 
     [Fact]
-    public async Task No_Middleware_Emits_No_Spans_And_No_Parent_Emits_Root_Span()
+    public async Task No_Middleware_Emits_No_Spans_And_No_Maf_Activity_Emits_Fallback_Root_Span()
     {
         using var capture = new ActivityCapture(SourceName);
 
@@ -82,5 +110,7 @@ public sealed class ToolTelemetryVisibilityTests
 
         Activity span = Assert.Single(capture.Completed);
         Assert.Null(span.ParentId);
+        Assert.Equal("get_order", span.GetTagItem(ToolAttributeNames.ToolName));
+        Assert.Equal("call_123", span.GetTagItem(ToolAttributeNames.ToolCallId));
     }
 }
