@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RedactionTelemetry.Demo</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Melic.AgentFramework.Observability.Abstractions\Melic.AgentFramework.Observability.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Melic.AgentFramework.Observability.Redaction\Melic.AgentFramework.Observability.Redaction.csproj" />
+    <ProjectReference Include="..\..\src\Melic.AgentFramework.Observability.Sessions\Melic.AgentFramework.Observability.Sessions.csproj" />
+    <ProjectReference Include="..\..\src\Melic.AgentFramework.Observability.Tools\Melic.AgentFramework.Observability.Tools.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- OTel SDK + exporters -->
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
+  </ItemGroup>
+
+</Project>

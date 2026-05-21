@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Melic.AgentFramework.Observability.Redaction</PackageId>
+    <Description>OpenTelemetry-native telemetry redaction for the Microsoft Agent Framework. Redacts sensitive values from selected trace attributes before export while preserving observability structure.</Description>
+    <PackageTags>opentelemetry;otel;observability;agents;ai;maf;redaction;pii;telemetry</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Melic.AgentFramework.Observability.Abstractions\Melic.AgentFramework.Observability.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Melic.AgentFramework.Observability.Redaction.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

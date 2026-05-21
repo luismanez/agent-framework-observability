@@ -91,11 +91,11 @@ The goal of this library is not to replace MAF telemetry. Each package should ma
 
 | Area | MAF out of the box | `Melic.AgentFramework.Observability.Redaction` improvement | Use the package when |
 |---|---|---|---|
-| Sensitive data switch | `EnableSensitiveData` is an all-or-nothing telemetry detail switch. | Planned processor pipeline can inspect and redact selected fields before export. | You need to keep useful telemetry while masking secrets, PII, or regulated data. |
-| Scope | MAF writes spans/logs; export-time policy is left to the application/backend. | Planned Activity and log processors apply the same redaction policy consistently before telemetry leaves the process. | You want one application-side policy for prompts, completions, tool args/results, and logs. |
-| Detectors | No built-in PII detector pipeline in MAF telemetry. | Planned standard redactors for email, credit cards, IBAN, JWTs, private keys, password-like fields, and optional high-risk detectors. | You need common detectors without hand-writing processors for each app. |
-| Failure behavior | Application-defined. | Planned fail-safe modes ensure redactor failures do not leak raw data by default. | You require predictable privacy behavior under redactor exceptions/timeouts. |
-| Extensibility | Custom processors are possible but app-specific. | Planned `IRedactor` extensibility, additional tag patterns, placeholders, and metrics. | You want reusable redaction components shared across agent apps. |
+| Sensitive data switch | `EnableSensitiveData` is an all-or-nothing telemetry detail switch. | Adds an OpenTelemetry trace processor that redacts selected attributes before export. | You need useful MAF/GenAI telemetry while masking secrets, PII, or regulated data. |
+| Default scope | MAF can emit broad sensitive payload fields when enabled. | Redacts package-owned `genai.tool.input` and `genai.tool.output` by default; session correlation attributes remain unchanged. | You capture tool payloads and want protection without broad prompt/completion mutation. |
+| Standard attributes | Official `gen_ai.*` attributes are controlled by MAF. | Processes selected `gen_ai.*` attributes only when explicitly opted in, with `IncludeMafSensitiveDataAttributes()` as the recommended preset for `EnableSensitiveData=true`. | You want to redact prompts, responses, tool arguments, or tool results deliberately and visibly. |
+| Structured payloads | Payload structure is whatever the emitter wrote. | Preserves valid JSON while replacing sensitive fields and string values. | You need post-redaction telemetry that remains queryable and readable. |
+| Failure behavior | Application-defined. | Fails closed by default with `ReplaceValue`; `PreserveOriginal` is explicit opt-in. | You require predictable privacy behavior under redaction failures or bounds. |
 
 ### 1.4 Non-goals
 
@@ -480,17 +480,21 @@ Meter: `Melic.AgentFramework.Observability.Sessions`.
 ### 6.1 Responsibilities
 
 - Redact sensitive content from telemetry **after** MAF has written it but **before** export.
-- Apply a configurable pipeline of `IRedactor` instances to span tags and log records.
-- Remain globally neutral — no country-specific assumptions in core.
+- Preserve useful trace structure while masking common secrets and PII in selected string attributes.
+- Stay MAF-aware through attribute conventions (`gen_ai.*`, `genai.tool.*`, selected `genai.session.*`) without coupling to `AIAgent` runtime types.
+- Remain globally neutral: no country-specific detectors, NER, or semantic PII detection in core.
+- Stay independent from Sessions, Tools, Azure Monitor, Application Insights, and exporter-specific packages.
 
 ### 6.2 Architecture
 
-Implemented as **OpenTelemetry processors**, not as agent decorators:
+Implemented as an **OpenTelemetry trace processor**, not as an agent decorator or runtime safety middleware:
 
-- `RedactingActivityProcessor : BaseProcessor<Activity>` — invoked on `OnEnd` of each activity.
-- `RedactingLogRecordProcessor : BaseProcessor<LogRecord>` — invoked on each log record.
+- `RedactionProcessor : BaseProcessor<Activity>` — invoked on `OnEnd` before downstream exporters.
+- `RedactionPolicy` — immutable validated runtime configuration built from `RedactionOptions`.
+- `AttributeTargetMatcher` — exact, prefix, exclusion, and explicit `gen_ai.*` opt-in matching.
+- `RedactionEngine` — bounded JSON-first redaction with string fallback and fail-closed behavior.
 
-Both processors share the same `RedactionPipeline` and the same `RedactionOptions`.
+Registration order matters: add Redaction before exporters so the processor runs before telemetry leaves the process. It does not mutate prompts before model calls, model responses, tool arguments, tool outputs, `AgentSession` state, or application objects.
 
 ### 6.3 Public API
 
@@ -499,181 +503,110 @@ namespace Melic.AgentFramework.Observability.Redaction;
 
 public static class RedactionTracerProviderBuilderExtensions
 {
-    public static TracerProviderBuilder AddRedaction(
+    public static TracerProviderBuilder AddTelemetryRedaction(
         this TracerProviderBuilder builder,
-        Action<RedactionOptions> configure);
-}
-
-public static class RedactionLoggerProviderBuilderExtensions
-{
-    public static OpenTelemetryLoggerOptions AddRedaction(
-        this OpenTelemetryLoggerOptions options,
-        Action<RedactionOptions> configure);
+        Action<RedactionOptions>? configure = null);
 }
 
 public sealed class RedactionOptions
 {
-    public IList<IRedactor> Redactors { get; } = new List<IRedactor>();
+    public bool EnableDefaultRules { get; set; } = true;
+    public string ReplacementText { get; set; } = "[REDACTED]";
+    public int MaxValueLength { get; set; } = 8192;
+    public RedactionFailureMode FailureMode { get; set; } = RedactionFailureMode.ReplaceValue;
+    public bool RedactExceptionMessages { get; set; }
+    public bool EnableDiagnostics { get; set; }
 
-    /// <summary>Default: All.</summary>
-    public RedactionField Fields { get; set; } = RedactionField.All;
-
-    /// <summary>Default: Token (e.g., "&lt;EMAIL&gt;").</summary>
-    public RedactionPlaceholder Placeholder { get; set; } = RedactionPlaceholder.Token;
-
-    /// <summary>Required when Placeholder == Custom.</summary>
-    public Func<RedactionMatch, string>? CustomPlaceholderFactory { get; set; }
-
-    /// <summary>Extra tag keys (regex) to include for redaction beyond the built-in allowlist.</summary>
-    public IList<string> AdditionalTagPatterns { get; } = new List<string>();
-
-    /// <summary>Default: FailSafe.</summary>
-    public RedactionFailureMode FailureMode { get; set; } = RedactionFailureMode.FailSafe;
-
-    /// <summary>Default: true.</summary>
-    public bool EmitMetrics { get; set; } = true;
-
-    /// <summary>Per-field timeout for the entire pipeline. Default: 100ms.</summary>
-    public TimeSpan PerFieldTimeout { get; set; } = TimeSpan.FromMilliseconds(100);
-
-    public string MeterName { get; set; } = "Melic.AgentFramework.Observability.Redaction";
+    public RedactionOptions IncludeAttribute(string attributeName);
+    public RedactionOptions IncludeAttributesWithPrefix(string attributePrefix);
+    public RedactionOptions ExcludeAttribute(string attributeName);
+    public RedactionOptions IncludeStandardAttribute(string attributeName);
+    public RedactionOptions IncludeStandardAttributesWithPrefix(string attributePrefix);
+    public RedactionOptions IncludeMafSensitiveDataAttributes();
+    public RedactionOptions AddSensitiveFieldName(string fieldName);
+    public RedactionOptions AddPatternRule(string name, string pattern);
 }
 
-public static class RedactionOptionsExtensions
-{
-    /// <summary>Adds Email, CreditCard, IBAN, JWT, PrivateKey, PasswordPattern.</summary>
-    public static RedactionOptions UseStandardRedactors(this RedactionOptions o);
-
-    /// <summary>Adds every built-in redactor including ApiKey (entropy-based) and Guid.</summary>
-    public static RedactionOptions UseAllBuiltInRedactors(this RedactionOptions o);
-
-    public static RedactionOptions AddRegexRedactor(this RedactionOptions o,
-        string name, string pattern, string? category = null);
-
-    public static RedactionOptions AddRedactor(this RedactionOptions o,
-        string name, Func<string, string> redact);
-}
-
-public interface IRedactor
-{
-    string Name { get; }
-    RedactionResult Redact(string input, RedactionContext context);
-}
-
-public readonly record struct RedactionContext(
-    RedactionField Field,
-    string? TagName,
-    string? AgentName,
-    string? ToolName);
-
-public sealed record RedactionResult(
-    string Output,
-    int MatchCount,
-    IReadOnlyDictionary<string, int>? MatchesByCategory = null);
-
-public sealed record RedactionMatch(
-    string RedactorName,
-    string Category,
-    int OriginalLength,
-    int StartIndex);
-
-public enum RedactionPlaceholder { Token, Hash, Length, Stars, Custom }
-
-[Flags]
-public enum RedactionField
-{
-    None = 0,
-    Prompt = 1,
-    Completion = 2,
-    ToolArguments = 4,
-    ToolResult = 8,
-    LogMessages = 16,
-    All = Prompt | Completion | ToolArguments | ToolResult | LogMessages
-}
-
-public enum RedactionFailureMode { FailSafe, Drop, Throw }
+public enum RedactionFailureMode { ReplaceValue, PreserveOriginal }
 ```
 
-### 6.4 Built-in redactors
+### 6.4 Default targets
 
-All built-in redactors are internationally neutral.
+Default exact targets:
 
-| Redactor | Detection | Notes |
+- `genai.tool.input`
+- `genai.tool.output`
+
+Built-in session correlation and aggregate attributes (`genai.session.*`) are not default targets. Consumers can opt in their own session payload attributes by exact name or prefix, for example `genai.session.customer_`.
+
+Official `gen_ai.*` attributes are opt-in only through `IncludeStandardAttribute`, `IncludeStandardAttributesWithPrefix`, or `IncludeMafSensitiveDataAttributes()`.
+
+`IncludeMafSensitiveDataAttributes()` includes the `gen_ai.` prefix and is the recommended preset when MAF `UseOpenTelemetry(configure: o => o.EnableSensitiveData = true)` is enabled for audit, analytics, or troubleshooting. It lets prompts, responses, tool arguments, and tool results remain available as telemetry while Redaction masks sensitive substrings before export.
+
+The current processor redacts string-valued `Activity` tags. If MAF emits sensitive prompt/response content as `ActivityEvent` data in a future SDK version, event redaction should be added as a separate enhancement.
+
+### 6.5 Built-in rules
+
+Default pattern rules cover:
+
+- Email addresses
+- Phone-like numbers
+- Bearer tokens
+- API-token-like fragments
+- Connection-string secrets
+- Password-like fragments
+
+Default sensitive JSON field names include `password`, `secret`, `token`, `apiKey`, `accessToken`, `refreshToken`, `connectionString`, `accountKey`, `sharedAccessKey`, `credential`, `clientSecret`, and `privateKey`.
+
+When `EnableDefaultRules = false`, default pattern rules and default sensitive field names are omitted. Custom pattern rules and custom field names still run.
+
+### 6.6 JSON handling
+
+The engine attempts JSON redaction first for values beginning with `{` or `[`. If parsing succeeds:
+
+- Objects and arrays are traversed recursively.
+- Sensitive field values are replaced wholesale.
+- String values are processed by pattern rules.
+- The emitted value remains valid JSON.
+
+Malformed JSON falls back to raw string redaction.
+
+### 6.7 Diagnostics
+
+Diagnostics are disabled by default. When enabled, the processor emits aggregate attributes only:
+
+| Attribute | Type | Notes |
 |---|---|---|
-| `EmailRedactor` | Simplified RFC 5322 regex | Universal |
-| `CreditCardRedactor` | Length 13–19 digits + Luhn checksum | Universal |
-| `IbanRedactor` | ISO 13616 format + mod-97 checksum | Universal |
-| `IpAddressRedactor` | IPv4 + IPv6 | Universal |
-| `MacAddressRedactor` | Standard `xx:xx:xx:xx:xx:xx` / `xx-xx-...` | Universal |
-| `UrlRedactor` | Configurable: full URL or query string only | Universal |
-| `JwtRedactor` | Pattern `eyJ` + 3 base64url segments | Universal |
-| `ApiKeyRedactor` | Length > 20 + Shannon entropy >= threshold (default 4.5) | High false-positive risk; opt-in via `UseAllBuiltInRedactors` |
-| `PrivateKeyRedactor` | `-----BEGIN [TYPE] PRIVATE KEY-----` blocks | Universal |
-| `PasswordPatternRedactor` | Regex on `password=`, `pwd:`, `secret:` etc. | Case-insensitive |
-| `GuidRedactor` | UUID format | Opt-in via `UseAllBuiltInRedactors` |
-| `PhoneNumberRedactor` | E.164 format only (`+CC...`) | Non-international formats not detected |
+| `genai.redaction.applied` | bool | True when at least one targeted value changed or failed closed. |
+| `genai.redaction.match_count` | int | Total number of replacements across the span. |
+| `genai.redaction.failure_count` | int | Total number of fail-closed or preserve-original failures across the span. |
 
-`UseStandardRedactors()` includes: **Email, CreditCard, IBAN, JWT, PrivateKey, PasswordPattern**.
-
-### 6.5 Built-in tag allowlist
-
-The processor only inspects tag values whose key matches:
-
-- `gen_ai.prompt.*`
-- `gen_ai.completion.*`
-- `gen_ai.tool.call.*.arguments`
-- `gen_ai.tool.call.*.result`
-- Any user-supplied pattern in `AdditionalTagPatterns`.
-
-Numeric tags and non-string tags are skipped.
-
-### 6.6 Placeholder formats
-
-| Placeholder | Example output for `[email protected]` |
-|---|---|
-| `Token` | `<EMAIL>` |
-| `Hash` | `<EMAIL:9f3a82c4>` (SHA-256, first 8 hex chars) |
-| `Length` | `<EMAIL:17chars>` |
-| `Stars` | `*****************` |
-| `Custom` | from `CustomPlaceholderFactory` |
-
-Token labels come from the redactor's category (or its `Name`).
-
-### 6.7 Metrics
-
-Meter: `Melic.AgentFramework.Observability.Redaction`.
-
-| Instrument | Type | Unit | Tags |
-|---|---|---|---|
-| `redaction.matches` | Counter\<long\> | matches | `redactor`, `field` |
-| `redaction.duration` | Histogram\<long\> | ms | `redactor` |
-| `redaction.failures` | Counter\<long\> | events | `redactor`, `failure_mode` |
+Diagnostics must never include rule names, matched values, original fragments, field values, or payload snippets.
 
 ### 6.8 Failure mode behavior
 
-| Mode | On redactor exception |
+| Mode | Behavior |
 |---|---|
-| `FailSafe` (default) | Replace the entire field value with `<REDACTION_ERROR>`; emit failure metric. |
-| `Drop` | Remove the tag entirely from the activity/log; emit failure metric. |
-| `Throw` | Rethrow. **For tests only.** |
+| `ReplaceValue` (default) | Replace failed or over-limit targeted values with `ReplacementText`. |
+| `PreserveOriginal` | Keep the original targeted value if processing cannot safely proceed. |
 
-**Invariant:** unredacted data must never be leaked because of a redactor bug.
+`MaxValueLength` bounds processing. Values above the configured limit use the active failure mode.
 
 ### 6.9 Implementation notes
 
-- `RedactionPipeline` runs redactors in registration order. Recommended order (most specific first): PrivateKey → JWT → IBAN → CreditCard → Email → ApiKey → PasswordPattern → URL → IP → MAC → Phone → Guid.
-- Each redactor receives the **already-partially-redacted** text from previous redactors (chained pipeline).
-- `PerFieldTimeout` is enforced via `Stopwatch` + cancellation cooperation; redactors that exceed the budget are short-circuited under the active `FailureMode`.
-- Allowlist matching is regex-cached per process.
-- Redactors must be thread-safe and stateless. Built-in regexes are compiled once (`RegexOptions.Compiled`).
-- A base class `RedactorBase` exposes a per-redactor `AllowList` (collection of literal strings) that bypasses detection — used to suppress known false positives. Consumers can extend `RedactorBase` for custom redactors.
+- `RedactionProcessor.OnEnd` catches all non-fatal processing errors so telemetry export continues.
+- Only string tag values are mutated; non-string values are preserved.
+- Exclusions win over includes.
+- Built-in regex rules are compiled with a timeout.
+- Redaction is idempotent for the default replacement text.
+- New package-owned diagnostic attribute names are declared in `Melic.AgentFramework.Observability.Abstractions.RedactionAttributeNames` before use.
 
 ### 6.10 Known limitations
 
-- No NER / no semantic detection (no names, no addresses).
+- Trace attributes only in the current MVP; no log processor yet.
+- No NER or semantic detection (no names, no addresses).
 - No country-specific detectors in core.
-- Phone numbers without international prefix are not detected.
-- `ApiKeyRedactor` by entropy can produce false positives; not included in the default preset.
+- Phone detection is intentionally conservative and may miss local formats.
 - No reversible tokenization.
 
 ---
@@ -706,7 +639,7 @@ Meter: `Melic.AgentFramework.Observability.Redaction`.
 
 All packages follow a consistent registration pattern:
 
-- A single `Use<Name>Telemetry(Action<Options>)` extension on `AIAgentBuilder` (or `AddRedaction` on the OTel builders).
+- A single `Use<Name>Telemetry(Action<Options>)` extension on `AIAgentBuilder` for agent decorators, or an `Add<Name>Telemetry(...)` extension on OpenTelemetry builders for export-boundary processors such as Redaction.
 - Options class is a plain POCO with sensible defaults; all properties are writable.
 - No DI container required, but DI-friendly (options can be constructed from `IServiceProvider` if needed in a future hosted-builder extension).
 

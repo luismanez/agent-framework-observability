@@ -2,21 +2,23 @@
 
 Observability library for the [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (MAF).
 
-Enriches AI agent sessions with stable identity, invocation aggregates, custom tags, and OpenTelemetry instrumentation — with zero changes to your agent logic.
+Enriches AI agent sessions and tool calls with stable identity, bounded payload telemetry, and OpenTelemetry-native export-boundary redaction.
 
 ## Packages
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| `Melic.AgentFramework.Observability.Sessions` | *(coming soon)* | Session identity & telemetry enrichment |
-| `Melic.AgentFramework.Observability.Tools` | *(coming soon)* | Bounded tool-call payload and retry enrichment |
-| `Melic.AgentFramework.Observability.Abstractions` | *(coming soon)* | Shared attribute-name constants |
+| `Melic.AgentFramework.Observability.Abstractions` | `0.1.0-preview.2` | Shared attribute-name constants |
+| `Melic.AgentFramework.Observability.Sessions` | `0.1.0-preview.2` | Session identity & telemetry enrichment |
+| `Melic.AgentFramework.Observability.Tools` | `0.1.0-preview.2` | Bounded tool-call payload and retry enrichment |
+| `Melic.AgentFramework.Observability.Redaction` | *(unreleased)* | MAF-aware OpenTelemetry trace-attribute redaction before export |
 
 ## Installation
 
 ```xml
 <PackageReference Include="Melic.AgentFramework.Observability.Sessions" Version="1.*" />
 <PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="1.*" />
+<PackageReference Include="Melic.AgentFramework.Observability.Redaction" Version="1.*" />
 ```
 
 ## Quick start (Scenario 1 — Mode A enrichment)
@@ -68,6 +70,30 @@ AgentResponse response = await agent.RunAsync("Check order 42", session);
 // - genai.tool.is_retry / genai.tool.attempt_index when a call id repeats
 ```
 
+### Redaction quick start
+
+Register Redaction on the OpenTelemetry trace pipeline before exporters. It is not an `AIAgent` middleware; it is an export-boundary telemetry processor that understands the MAF/GenAI attribute surface. By default it redacts package-owned tool payload attributes `genai.tool.input` and `genai.tool.output`.
+
+```csharp
+using Melic.AgentFramework.Observability.Redaction;
+using OpenTelemetry;
+using OpenTelemetry.Trace;
+
+using var tracerProvider = Sdk.CreateTracerProviderBuilder()
+    .AddSource("Experimental.Microsoft.Agents.AI")
+    .AddSource("Melic.AgentFramework.Observability.Tools")
+    .AddTelemetryRedaction(options =>
+    {
+        // Recommended when MAF UseOpenTelemetry has EnableSensitiveData=true.
+        options.IncludeMafSensitiveDataAttributes();
+        options.IncludeAttributesWithPrefix("genai.session.customer_");
+    })
+    .AddConsoleExporter()
+    .Build();
+```
+
+Built-in `genai.session.*` correlation attributes are not redacted by default. Official `gen_ai.*` attributes are processed only when explicitly opted in, either individually or with `IncludeMafSensitiveDataAttributes()` for MAF prompt/response/tool sensitive-data telemetry. Redaction changes exported span attributes only; it does not modify agent messages, model inputs, model outputs, tool arguments, or application state.
+
 ### ⚠️ Pipeline order matters when combining with `UseOpenTelemetry()`
 
 `UseSessionTelemetry()` enriches the **currently active** `Activity` (the `invoke_agent`
@@ -116,6 +142,7 @@ See the [full quickstart](specs/001-session-identity-enrichment/quickstart.md) f
 
 - [Session Identity & Enrichment](docs/features/session-identity-enrichment.md) — stable session ID, aggregate token counts, custom tags, optional session span (Mode B)
 - [Tool Call Span Enrichment](docs/features/tool-call-enrichment.md) — enriches MAF `execute_tool` spans with bounded payload and retry attributes
+- [Redaction Pipeline](docs/features/redaction-pipeline.md) — redacts selected trace attributes before export with JSON-preserving rules and aggregate diagnostics
 
 ## Requirements
 

@@ -1,32 +1,28 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: (unversioned template) → 1.0.0
-Bump Rationale: MINOR — initial population of all principles and sections; no prior version exists.
+Version Change: 1.0.0 → 1.0.1
+Bump Rationale: PATCH — clarified reserved `gen_ai.` prefix language so package-owned custom
+attributes remain prohibited from using `gen_ai.`, while references to official OTel/MAF
+semantic-convention attributes are permitted for interoperability, tests, docs, and explicit
+consumer opt-in behavior.
 
-Added Sections:
-  - Core Principles (6 principles: Package Independence, OTel-Native, Zero Breaking Changes,
-    Integration Tests, Attribute Naming, Code Style)
-  - Technology Stack & Constraints
-  - Development Workflow (including Constitution Check gate list)
-  - Governance
+Added Sections: None
 
-Removed Sections: None (template placeholders replaced)
+Removed Sections: None
 
-Modified Principles: None (first-time authoring)
+Modified Principles:
+   - V. Telemetry Attribute Naming Discipline — clarified reserved-prefix scope.
 
 Templates Requiring Updates:
-  ✅ .specify/memory/constitution.md — written (this file)
-  ✅ .specify/templates/plan-template.md — Constitution Check placeholder is intentionally
-     generic ([Gates determined based on constitution file]); the concrete gate list now lives
-     in the Development Workflow section of this constitution and is injected by /speckit.plan.
-  ✅ .specify/templates/spec-template.md — no structural changes required; user story format
-     is compatible with all six principles.
-  ✅ .specify/templates/tasks-template.md — task phases are compatible; principle-driven task
-     types (observability pipeline, attribute naming, redaction) will be expressed in individual
-     tasks.md files, not in the template itself.
+   ✅ .specify/memory/constitution.md — updated (this file)
+   ✅ .specify/templates/plan-template.md — no structural changes required.
+   ✅ .specify/templates/spec-template.md — no structural changes required; user story format
+       remains compatible with all seven principles.
+   ✅ .specify/templates/tasks-template.md — no structural changes required; principle-driven task
+       types are expressed in individual tasks.md files, not in the template itself.
 
-Deferred TODOs: None — all placeholders resolved.
+Deferred TODOs: None.
 -->
 
 # Melic.AgentFramework.Observability Constitution
@@ -66,10 +62,12 @@ coverage in favor of mocked equivalents.
 ### V. Telemetry Attribute Naming Discipline
 All custom telemetry attributes emitted by this library MUST use the `genai.` prefix.
 The `gen_ai.` prefix is RESERVED for the official OpenTelemetry Semantic Conventions
-and MUST NOT be used anywhere in this codebase. Attribute names MUST be lowercase,
-dot-separated, and self-describing. Any new attribute key MUST be declared as a
-`public static readonly string` constant in Abstractions before it is referenced in
-any other package.
+and MAF-owned attributes. This library MUST NOT emit package-owned custom attributes
+with the `gen_ai.` prefix. References to official `gen_ai.*` attributes are permitted
+when required for interoperability, tests, documentation, or explicit consumer opt-in
+behavior. Attribute names MUST be lowercase, dot-separated, and self-describing. Any
+new package-owned attribute key MUST be declared as a `public static readonly string`
+constant in Abstractions before it is referenced in any other package.
 
 ### VI. Code Style & API Surface Completeness
 All code MUST target the latest stable C# language version with `<Nullable>enable</Nullable>`
@@ -149,8 +147,8 @@ Amendments MUST:
    to reflect the amendment within the same PR.
 3. Be ratified by at least one project maintainer via PR review and merge.
 
-All PRs and code reviews MUST verify compliance with all six Core Principles before approval.
+All PRs and code reviews MUST verify compliance with all seven Core Principles before approval.
 Complexity MUST be justified; prefer fewer abstractions over more flexible but
 harder-to-reason-about designs. When in doubt, defer to Principle II (OTel-Native).
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-13 | **Last Amended**: 2026-05-13
+**Version**: 1.0.1 | **Ratified**: 2026-05-13 | **Last Amended**: 2026-05-20
