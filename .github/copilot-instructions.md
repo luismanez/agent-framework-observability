@@ -29,7 +29,7 @@ Source lives under `src/`, tests under `tests/`. Solution file: `agent-framework
 ## Non-Negotiable Rules (always apply)
 
 1. **OTel-only dependencies** — depend only on `OpenTelemetry.Api`, `System.Diagnostics.Activity`, `Microsoft.Extensions.AI`. No MAF internal types, no reflection-heavy libs, no preview OTel packages in stable releases.
-2. **Attribute prefix** — custom telemetry attributes use the `genai.` prefix. The `gen_ai.` prefix is **reserved for OTel Semantic Conventions** and must never appear in this codebase.
+2. **Attribute prefix** — package-owned custom telemetry attributes use the `genai.` prefix. The `gen_ai.` prefix is **reserved for OTel Semantic Conventions** and MAF-owned attributes; references to official `gen_ai.*` attributes are allowed only for interoperability, tests, documentation, or explicit consumer opt-in behavior.
 3. **Declare before use** — every new attribute key must be declared as `public static readonly string` in the Abstractions package before being referenced anywhere else.
 4. **Package independence** — no package may depend on a sibling except through Abstractions. Cross-cutting logic lives in Abstractions; duplication across siblings is prohibited.
 5. **Integration tests preferred** — mocking internal MAF types is prohibited. Use real `AgentSession`, `AIAgent`, `ActivitySource`. Unit tests are acceptable only for pure algorithmic logic with zero external dependencies.
@@ -76,5 +76,5 @@ The Sessions package establishes the design template for all future observabilit
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/002-tool-call-enrichment/plan.md
+at specs/003-redaction-pipeline/plan.md
 <!-- SPECKIT END -->

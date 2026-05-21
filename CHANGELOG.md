@@ -9,6 +9,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Redaction Pipeline** — New `Melic.AgentFramework.Observability.Redaction` package adds `.AddTelemetryRedaction()` for OpenTelemetry trace pipelines, redacting selected string attributes before export. (see specs/003-redaction-pipeline/)
+- **Default Tool Payload Protection** — Redacts `genai.tool.input` and `genai.tool.output` by default with built-in rules for email, phone-like values, bearer tokens, API-token fragments, connection-string secrets, password-like fragments, and sensitive JSON field names. (see specs/003-redaction-pipeline/)
+- **Configurable Redaction Scope** — Consumers can include or exclude attributes by exact name or prefix, opt selected official `gen_ai.*` attributes into processing, add custom regex rules, add sensitive JSON field names, and disable default rules while keeping custom rules. (see specs/003-redaction-pipeline/)
+- **MAF Sensitive Data Redaction Preset** — `IncludeMafSensitiveDataAttributes()` opts in the official `gen_ai.*` attribute surface commonly emitted when MAF `EnableSensitiveData` is enabled for audit, analytics, or troubleshooting. (see specs/003-redaction-pipeline/)
+- **Operational Redaction Diagnostics** — Optional aggregate diagnostics emit `genai.redaction.applied`, `genai.redaction.match_count`, and `genai.redaction.failure_count` without exposing rule names, matched values, or payload fragments. (see specs/003-redaction-pipeline/)
 - **Tool Call Span Enrichment** — New `Melic.AgentFramework.Observability.Tools` package adds `.UseToolTelemetry()` to enrich MAF `execute_tool` spans in place, with fallback `agent_tool_call` spans only when no MAF tool span is current. (see specs/002-tool-call-enrichment/)
 - **Bounded Tool Payload Capture** — Tool inputs, outputs, and structured error payloads can be captured as valid JSON via `genai.tool.input` and `genai.tool.output`, with independent capture switches and max-length bounds. (see specs/002-tool-call-enrichment/)
 - **Tool Retry Markers** — Repeated tool call ids within one invocation are marked with `genai.tool.is_retry` and `genai.tool.attempt_index` to surface retries and loops in trace data. (see specs/002-tool-call-enrichment/)
