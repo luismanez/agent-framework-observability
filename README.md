@@ -2,7 +2,7 @@
 
 Observability library for the [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (MAF).
 
-Enriches AI agent sessions and tool calls with stable identity, bounded payload telemetry, and OpenTelemetry-native redaction.
+Enriches AI agent sessions and tool calls with stable identity, bounded payload telemetry, and OpenTelemetry-native export-boundary redaction.
 
 ## Packages
 
@@ -11,7 +11,7 @@ Enriches AI agent sessions and tool calls with stable identity, bounded payload 
 | `Melic.AgentFramework.Observability.Abstractions` | `0.1.0-preview.2` | Shared attribute-name constants |
 | `Melic.AgentFramework.Observability.Sessions` | `0.1.0-preview.2` | Session identity & telemetry enrichment |
 | `Melic.AgentFramework.Observability.Tools` | `0.1.0-preview.2` | Bounded tool-call payload and retry enrichment |
-| `Melic.AgentFramework.Observability.Redaction` | *(unreleased)* | OpenTelemetry trace-attribute redaction before export |
+| `Melic.AgentFramework.Observability.Redaction` | *(unreleased)* | MAF-aware OpenTelemetry trace-attribute redaction before export |
 
 ## Installation
 
@@ -72,7 +72,7 @@ AgentResponse response = await agent.RunAsync("Check order 42", session);
 
 ### Redaction quick start
 
-Register Redaction on the OpenTelemetry trace pipeline before exporters. By default it redacts package-owned tool payload attributes `genai.tool.input` and `genai.tool.output`.
+Register Redaction on the OpenTelemetry trace pipeline before exporters. It is not an `AIAgent` middleware; it is an export-boundary telemetry processor that understands the MAF/GenAI attribute surface. By default it redacts package-owned tool payload attributes `genai.tool.input` and `genai.tool.output`.
 
 ```csharp
 using Melic.AgentFramework.Observability.Redaction;
@@ -92,7 +92,7 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .Build();
 ```
 
-Built-in `genai.session.*` correlation attributes are not redacted by default. Official `gen_ai.*` attributes are processed only when explicitly opted in, either individually or with `IncludeMafSensitiveDataAttributes()` for MAF prompt/response/tool sensitive-data telemetry.
+Built-in `genai.session.*` correlation attributes are not redacted by default. Official `gen_ai.*` attributes are processed only when explicitly opted in, either individually or with `IncludeMafSensitiveDataAttributes()` for MAF prompt/response/tool sensitive-data telemetry. Redaction changes exported span attributes only; it does not modify agent messages, model inputs, model outputs, tool arguments, or application state.
 
 ### ⚠️ Pipeline order matters when combining with `UseOpenTelemetry()`
 

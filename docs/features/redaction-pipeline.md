@@ -1,6 +1,6 @@
 # Redaction Pipeline
 
-`Melic.AgentFramework.Observability.Redaction` redacts selected trace attributes before telemetry is exported. It is OpenTelemetry-native, independent from Sessions and Tools, and intended to protect high-risk payload attributes while preserving enough structure for diagnostics.
+`Melic.AgentFramework.Observability.Redaction` redacts selected trace attributes before telemetry is exported. It is an OpenTelemetry-native export-boundary processor, not an `AIAgent` runtime middleware. It belongs in this observability package because it understands the MAF/GenAI telemetry tags emitted by MAF and by the Sessions and Tools packages, while remaining independent from any specific agent implementation.
 
 ## Installation
 
@@ -28,6 +28,12 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
 ```
 
 By default, Redaction targets `genai.tool.input` and `genai.tool.output`. Built-in session correlation attributes such as `genai.session.id` are not default targets.
+
+## Scope
+
+Redaction transforms telemetry attributes after spans are written and before exporters send them onward. It does not mutate business objects, chat messages, prompts before model invocation, model responses, tool arguments, tool outputs, or `AgentSession` state.
+
+That boundary is deliberate: Redaction keeps audit and analytics telemetry useful while reducing the risk of exporting secrets or PII in MAF/GenAI span attributes. Runtime prompt/tool/message redaction is a separate safety concern and would require agent middleware with different ordering and behavior guarantees.
 
 ## Configuration
 
@@ -60,7 +66,7 @@ AIAgent agent = new AIAgentBuilder(innerAgent)
     .Build();
 ```
 
-When this is enabled, MAF and `Microsoft.Extensions.AI` may emit prompt, response, tool argument, and tool result data under official `gen_ai.*` attributes. Redaction supports that surface through an explicit preset:
+When this is enabled, MAF and `Microsoft.Extensions.AI` may emit prompt, response, tool argument, and tool result data under official `gen_ai.*` span attributes. Redaction supports that telemetry surface through an explicit preset:
 
 ```csharp
 Sdk.CreateTracerProviderBuilder()

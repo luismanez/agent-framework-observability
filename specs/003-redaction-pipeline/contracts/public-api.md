@@ -27,6 +27,7 @@ public static class RedactionTracerProviderBuilderExtensions
 - Throws standard argument/validation exceptions for invalid configuration.
 - Does not throw from telemetry processing after registration succeeds.
 - Should be registered before exporters in examples so transformed attributes reach every exporter.
+- Is MAF-aware through telemetry attribute conventions, not through direct `AIAgent` middleware or runtime object mutation.
 
 ## Options Contract
 
@@ -141,7 +142,7 @@ For string values that appear to be JSON objects or arrays:
 
 ## Processor Safety Contract
 
-- Redaction does not mutate business objects, agent messages, tool arguments, tool outputs, or application state.
+- Redaction does not mutate business objects, agent messages, prompts before model invocation, model responses, tool arguments, tool outputs, `AgentSession` state, or application state.
 - Redaction only transforms telemetry attribute values.
 - Redaction never throws during export processing.
 - Diagnostic metadata never includes original values, matched fragments, or field values.

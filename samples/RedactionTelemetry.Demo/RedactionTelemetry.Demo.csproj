@@ -13,8 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- OTel SDK + exporters -->
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
   </ItemGroup>
 
 </Project>

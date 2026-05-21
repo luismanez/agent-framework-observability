@@ -91,7 +91,7 @@ The goal of this library is not to replace MAF telemetry. Each package should ma
 
 | Area | MAF out of the box | `Melic.AgentFramework.Observability.Redaction` improvement | Use the package when |
 |---|---|---|---|
-| Sensitive data switch | `EnableSensitiveData` is an all-or-nothing telemetry detail switch. | Adds an OpenTelemetry trace processor that redacts selected attributes before export. | You need useful payload telemetry while masking secrets, PII, or regulated data. |
+| Sensitive data switch | `EnableSensitiveData` is an all-or-nothing telemetry detail switch. | Adds an OpenTelemetry trace processor that redacts selected attributes before export. | You need useful MAF/GenAI telemetry while masking secrets, PII, or regulated data. |
 | Default scope | MAF can emit broad sensitive payload fields when enabled. | Redacts package-owned `genai.tool.input` and `genai.tool.output` by default; session correlation attributes remain unchanged. | You capture tool payloads and want protection without broad prompt/completion mutation. |
 | Standard attributes | Official `gen_ai.*` attributes are controlled by MAF. | Processes selected `gen_ai.*` attributes only when explicitly opted in, with `IncludeMafSensitiveDataAttributes()` as the recommended preset for `EnableSensitiveData=true`. | You want to redact prompts, responses, tool arguments, or tool results deliberately and visibly. |
 | Structured payloads | Payload structure is whatever the emitter wrote. | Preserves valid JSON while replacing sensitive fields and string values. | You need post-redaction telemetry that remains queryable and readable. |
@@ -481,19 +481,20 @@ Meter: `Melic.AgentFramework.Observability.Sessions`.
 
 - Redact sensitive content from telemetry **after** MAF has written it but **before** export.
 - Preserve useful trace structure while masking common secrets and PII in selected string attributes.
+- Stay MAF-aware through attribute conventions (`gen_ai.*`, `genai.tool.*`, selected `genai.session.*`) without coupling to `AIAgent` runtime types.
 - Remain globally neutral: no country-specific detectors, NER, or semantic PII detection in core.
 - Stay independent from Sessions, Tools, Azure Monitor, Application Insights, and exporter-specific packages.
 
 ### 6.2 Architecture
 
-Implemented as an **OpenTelemetry trace processor**, not as an agent decorator:
+Implemented as an **OpenTelemetry trace processor**, not as an agent decorator or runtime safety middleware:
 
 - `RedactionProcessor : BaseProcessor<Activity>` — invoked on `OnEnd` before downstream exporters.
 - `RedactionPolicy` — immutable validated runtime configuration built from `RedactionOptions`.
 - `AttributeTargetMatcher` — exact, prefix, exclusion, and explicit `gen_ai.*` opt-in matching.
 - `RedactionEngine` — bounded JSON-first redaction with string fallback and fail-closed behavior.
 
-Registration order matters: add Redaction before exporters so the processor runs before telemetry leaves the process.
+Registration order matters: add Redaction before exporters so the processor runs before telemetry leaves the process. It does not mutate prompts before model calls, model responses, tool arguments, tool outputs, `AgentSession` state, or application objects.
 
 ### 6.3 Public API
 
@@ -638,7 +639,7 @@ Diagnostics must never include rule names, matched values, original fragments, f
 
 All packages follow a consistent registration pattern:
 
-- A single `Use<Name>Telemetry(Action<Options>)` extension on `AIAgentBuilder` (or `AddRedaction` on the OTel builders).
+- A single `Use<Name>Telemetry(Action<Options>)` extension on `AIAgentBuilder` for agent decorators, or an `Add<Name>Telemetry(...)` extension on OpenTelemetry builders for export-boundary processors such as Redaction.
 - Options class is a plain POCO with sensible defaults; all properties are writable.
 - No DI container required, but DI-friendly (options can be constructed from `IServiceProvider` if needed in a future hosted-builder extension).
 

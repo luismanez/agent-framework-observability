@@ -1,8 +1,8 @@
 # Melic.AgentFramework.Observability.Redaction
 
-OpenTelemetry-native telemetry redaction for Melic Agent Framework Observability.
+MAF-aware OpenTelemetry trace-attribute redaction for Melic Agent Framework Observability.
 
-This package redacts sensitive values from selected trace attributes before export. It is independent from the Sessions and Tools packages and composes with them through OpenTelemetry.
+This package redacts sensitive values from selected trace attributes before export. It is an OpenTelemetry processor, not an `AIAgent` middleware. It composes with MAF, Sessions, Tools, and application telemetry by processing their span attributes at the export boundary.
 
 ## Usage
 
@@ -18,7 +18,7 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .Build();
 ```
 
-Default targets are `genai.tool.input` and `genai.tool.output`. Official `gen_ai.*` attributes and custom session payload attributes are opt-in.
+Default targets are `genai.tool.input` and `genai.tool.output`. Official `gen_ai.*` attributes and custom session payload attributes are opt-in. Redaction does not mutate prompts, responses, tool arguments, tool results, or application state; it only changes exported telemetry attributes.
 
 ```csharp
 builder.AddTelemetryRedaction(options =>

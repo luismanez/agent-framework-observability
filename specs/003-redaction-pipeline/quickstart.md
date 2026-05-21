@@ -18,7 +18,7 @@ When developing in this repository, reference the project instead:
 
 ## 2. Register redaction in the tracing pipeline
 
-Register redaction after sources are added and before exporters in examples.
+Register redaction after sources are added and before exporters in examples. Redaction is an OpenTelemetry export-boundary processor: it is MAF-aware through span attributes, but it is not registered on `AIAgentBuilder`.
 
 ```csharp
 using Melic.AgentFramework.Observability.Redaction;
@@ -95,7 +95,7 @@ using TracerProvider tracerProvider = Sdk.CreateTracerProviderBuilder()
     .Build();
 ```
 
-This keeps prompt, response, tool argument, and tool result telemetry available for observability while applying Redaction rules before export.
+This keeps prompt, response, tool argument, and tool result telemetry available for observability while applying Redaction rules before export. It does not change the data sent to the model or tools.
 
 ## 5. Add custom rules
 
@@ -188,4 +188,4 @@ is exported as structurally useful telemetry similar to:
 {"email":"[REDACTED]","apiKey":"[REDACTED]","query":"show invoices"}
 ```
 
-The application, agent messages, tool arguments, and tool outputs in memory are unchanged. Only telemetry attributes are transformed before export.
+The application, agent messages, prompts before model invocation, model responses, tool arguments, and tool outputs in memory are unchanged. Only telemetry attributes are transformed before export.
