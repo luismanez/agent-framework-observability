@@ -76,5 +76,5 @@ The Sessions package establishes the design template for all future observabilit
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/003-redaction-pipeline/plan.md
+at specs/004-end-to-end-sample-preview-hardening/plan.md
 <!-- SPECKIT END -->

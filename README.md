@@ -13,6 +13,12 @@ Enriches AI agent sessions and tool calls with stable identity, bounded payload 
 | `Melic.AgentFramework.Observability.Tools` | `0.1.0-preview.2` | Bounded tool-call payload and retry enrichment |
 | `Melic.AgentFramework.Observability.Redaction` | *(unreleased)* | MAF-aware OpenTelemetry trace-attribute redaction before export |
 
+## Recommended preview path
+
+Use [Recommended Preview Setup](docs/features/recommended-preview-setup.md) when adopting Sessions, Tools, and Redaction together. It explains which packages register on `AIAgentBuilder`, which package registers on the OpenTelemetry pipeline, and how to keep Redaction at the export boundary.
+
+For a runnable composition sample, see [End-to-End Telemetry Demo](samples/EndToEndTelemetry.Demo/README.md). The sample runs a customer-support order lookup flow, exports to Console by default, and switches to Application Insights when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set.
+
 ## Installation
 
 ```xml
@@ -137,6 +143,8 @@ See the [full quickstart](specs/001-session-identity-enrichment/quickstart.md) f
 - Scenario 3 — Custom business context tags
 - Scenario 4 — Session persistence across serialization/restore
 - Scenario 5 — Mode B session-level span (`BeginSessionTrace`)
+
+See [Recommended Preview Setup](docs/features/recommended-preview-setup.md) for the end-to-end Sessions + Tools + Redaction composition.
 
 ## Features
 

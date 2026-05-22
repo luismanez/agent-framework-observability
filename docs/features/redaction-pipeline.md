@@ -118,6 +118,7 @@ Diagnostics do not include rule names, matched values, original fragments, field
 
 ## See Also
 
+- [Recommended preview setup](recommended-preview-setup.md)
 - [Spec quickstart](../../specs/003-redaction-pipeline/quickstart.md)
 - [Feature specification](../../specs/003-redaction-pipeline/spec.md)
 - [Technical reference](../design/technical-reference.md)

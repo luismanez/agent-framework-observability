@@ -355,8 +355,15 @@ Adds the session telemetry decorator to the agent pipeline. Call once during age
 
 ---
 
+## Preview Consumption Notes
+
+For the combined Sessions, Tools, and Redaction setup, use [Recommended preview setup](recommended-preview-setup.md). Package-level NuGet README content is sourced from `nuget/NUGET.md`; this page is the deeper Sessions feature reference.
+
+---
+
 ## See Also
 
+- [Recommended preview setup](recommended-preview-setup.md)
 - [Full quickstart with all scenarios](../../specs/001-session-identity-enrichment/quickstart.md)
 - [Public API contract](../../specs/001-session-identity-enrichment/contracts/sessions-api.md)
 - [Feature specification](../../specs/001-session-identity-enrichment/spec.md)

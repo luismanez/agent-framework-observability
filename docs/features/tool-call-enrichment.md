@@ -171,8 +171,13 @@ Telemetry is best-effort. Span enrichment, fallback span creation, retry bookkee
 
 The Tools package does not redact payloads. If tool inputs or outputs may contain sensitive data, disable capture or apply redaction before exporting telemetry.
 
+## Preview Consumption Notes
+
+For the combined Sessions, Tools, and Redaction setup, use [Recommended preview setup](recommended-preview-setup.md). Package-level NuGet README content is sourced from `nuget/NUGET.md`; this page is the deeper Tools feature reference.
+
 ## See Also
 
+- [Recommended preview setup](recommended-preview-setup.md)
 - [Spec quickstart](../../specs/002-tool-call-enrichment/quickstart.md)
 - [Feature specification](../../specs/002-tool-call-enrichment/spec.md)
 - [Technical reference](../design/technical-reference.md)

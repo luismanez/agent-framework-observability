@@ -166,6 +166,8 @@ agent.AsBuilder()
 
 `Melic.AgentFramework.Observability.Redaction` is registered separately on the `TracerProvider` / `LoggerProvider` builders, not on the agent pipeline.
 
+For the current recommended preview composition, see [Recommended Preview Setup](../features/recommended-preview-setup.md) and the runnable [End-to-End Telemetry Demo](../../samples/EndToEndTelemetry.Demo/README.md). That path combines Sessions, Tools, and Redaction while keeping exporter dependencies in the sample/application layer.
+
 ---
 
 ## 3. Package: `Melic.AgentFramework.Observability.Performance`

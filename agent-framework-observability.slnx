@@ -11,6 +11,7 @@
     <Project Path="tests/Melic.AgentFramework.Observability.Tools.Tests/Melic.AgentFramework.Observability.Tools.Tests.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/EndToEndTelemetry.Demo/EndToEndTelemetry.Demo.csproj" />
     <Project Path="samples/RedactionTelemetry.Demo/RedactionTelemetry.Demo.csproj" />
     <Project Path="samples/SessionTelemetry.Demo/SessionTelemetry.Demo.csproj" />
     <Project Path="samples/ToolTelemetry.Demo/ToolTelemetry.Demo.csproj" />

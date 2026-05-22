@@ -12,7 +12,7 @@
 
 ### User Story 1 - Run Recommended End-to-End Sample (Priority: P1)
 
-As a developer evaluating the preview packages, I want to run one realistic sample that combines session correlation, tool-call telemetry, and export-boundary redaction so that I can see the recommended setup working as a coherent observability story.
+As a developer evaluating the preview packages, I want to run one realistic customer-support order lookup sample that combines session correlation, tool-call telemetry, and export-boundary redaction so that I can see the recommended setup working as a coherent observability story.
 
 **Why this priority**: This is the primary proof that the three packages compose into a useful preview experience rather than separate demos.
 
@@ -86,7 +86,7 @@ As a maintainer preparing the preview for public use, I want a clean consumer va
 ### Functional Requirements
 
 - **FR-001**: The system MUST provide one end-to-end sample that composes Sessions, Tools, and Redaction in a single recommended scenario.
-- **FR-002**: The sample MUST demonstrate a realistic multi-turn agent conversation with at least one tool call.
+- **FR-002**: The sample MUST demonstrate a realistic customer-support order lookup conversation with multiple turns and at least one tool call.
 - **FR-003**: The sample MUST demonstrate stable session correlation attributes in exported telemetry.
 - **FR-004**: The sample MUST demonstrate tool-call enrichment attributes in exported telemetry.
 - **FR-005**: The sample MUST demonstrate MAF/GenAI standard sensitive-data telemetry when sensitive telemetry capture is enabled.
@@ -117,7 +117,7 @@ As a maintainer preparing the preview for public use, I want a clean consumer va
 
 ### Measurable Outcomes
 
-- **SC-001**: A developer can run the end-to-end sample with the default local exporter in under 10 minutes after prerequisites are available.
+- **SC-001**: A developer can run the end-to-end sample with the default local exporter in under 10 minutes after prerequisites are available, measured by the quickstart timing command or an equivalent stopwatch check.
 - **SC-002**: The end-to-end sample emits at least one multi-turn session trace and at least one tool-call trace that demonstrate all three packages working together.
 - **SC-003**: The same sample can be configured for Application Insights by setting one connection string, with no source code changes required.
 - **SC-004**: Application Insights inspection guidance identifies the expected span names or filters and at least five relevant telemetry attributes or dimensions to inspect.

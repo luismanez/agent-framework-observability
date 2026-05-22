@@ -4,6 +4,8 @@ MAF-aware OpenTelemetry trace-attribute redaction for Melic Agent Framework Obse
 
 This package redacts sensitive values from selected trace attributes before export. It is an OpenTelemetry processor, not an `AIAgent` middleware. It composes with MAF, Sessions, Tools, and application telemetry by processing their span attributes at the export boundary.
 
+Exporter packages belong in applications and samples. The Redaction package itself does not depend on Sessions, Tools, Azure Monitor, Application Insights, or exporter-specific packages.
+
 ## Usage
 
 ```csharp
