@@ -53,7 +53,7 @@
 - [x] T017 [US1] Add sample console guidance describing expected spans and attributes in samples/EndToEndTelemetry.Demo/README.md
 - [x] T018 [US1] Document local prerequisites and required Azure OpenAI environment variables in samples/EndToEndTelemetry.Demo/README.md
 - [x] T019 [US1] Validate the local sample build with `dotnet build samples/EndToEndTelemetry.Demo/EndToEndTelemetry.Demo.csproj -c Release` for samples/EndToEndTelemetry.Demo/EndToEndTelemetry.Demo.csproj
-- [ ] T020 [US1] Validate the local sample run path and record under-10-minute timing from specs/004-end-to-end-sample-preview-hardening/quickstart.md
+- [x] T020 [US1] Validate the local sample run path and record under-10-minute timing from specs/004-end-to-end-sample-preview-hardening/quickstart.md
 
 **Checkpoint**: User Story 1 is independently functional as the MVP and the local Console path demonstrates all three packages together.
 
@@ -73,7 +73,7 @@
 - [x] T024 [US2] Add Application Insights run instructions and connection string setup in samples/EndToEndTelemetry.Demo/README.md
 - [x] T025 [US2] Add App Insights inspection guidance with span filters and at least five dimensions in samples/EndToEndTelemetry.Demo/README.md
 - [x] T026 [US2] Add the same App Insights inspection guidance to docs/features/recommended-preview-setup.md
-- [ ] T027 [US2] Validate the App Insights configuration path from specs/004-end-to-end-sample-preview-hardening/quickstart.md
+- [x] T027 [US2] Validate the App Insights configuration path from specs/004-end-to-end-sample-preview-hardening/quickstart.md
 
 **Checkpoint**: User Story 2 works independently on top of the MVP; changing one environment variable switches the same sample to Application Insights.
 
@@ -138,7 +138,7 @@
 - [x] T054 Run full repository build with `dotnet build` from agent-framework-observability.slnx
 - [x] T055 Run full repository tests with `dotnet test` from agent-framework-observability.slnx
 - [x] T056 Run final sample build validation with `dotnet build samples/EndToEndTelemetry.Demo/EndToEndTelemetry.Demo.csproj -c Release` for samples/EndToEndTelemetry.Demo/EndToEndTelemetry.Demo.csproj
-- [ ] T057 Run final quickstart validation steps from specs/004-end-to-end-sample-preview-hardening/quickstart.md
+- [x] T057 Run final quickstart validation steps from specs/004-end-to-end-sample-preview-hardening/quickstart.md
 
 ---
 
