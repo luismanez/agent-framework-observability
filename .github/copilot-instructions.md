@@ -1,19 +1,19 @@
 # Melic.AgentFramework.Observability
 
 A C# observability library for the [Microsoft Agent Framework (MAF)](https://github.com/microsoft/agent-framework)
-that adds OpenTelemetry-native session tracking, performance instrumentation, tool-call span enrichment,
-and PII redaction. All packages target `net8.0`, `net9.0`, and `net10.0`.
+that adds OpenTelemetry-native session tracking, tool-call span enrichment,
+and PII redaction. All published packages target `net8.0`, `net9.0`, and `net10.0`.
 
 ## Package Map
 
 | Package | Purpose |
 |---|---|
+| `Melic.AgentFramework.Observability` | Meta-package — no code, installs Sessions, Tools, and Redaction together |
 | `Melic.AgentFramework.Observability.Abstractions` | Shared attribute constants (`SessionAttributeNames`, etc.), interfaces |
 | `Melic.AgentFramework.Observability.Sessions` | Conversation/session lifecycle tracing |
-| `Melic.AgentFramework.Observability.Performance` | _(planned)_ CPU/memory/latency instrumentation |
 | `Melic.AgentFramework.Observability.Tools` | Tool-call span enrichment |
-| `Melic.AgentFramework.Observability.Redaction` | _(planned)_ PII redaction pipeline |
-| `Melic.AgentFramework.Observability` | Meta-package — no code, aggregates the above |
+| `Melic.AgentFramework.Observability.Redaction` | PII redaction pipeline |
+| `Melic.AgentFramework.Observability.Performance` | Future package — not part of the `0.1.0` suite |
 
 Source lives under `src/`, tests under `tests/`. Solution file: `agent-framework-observability.slnx`.
 

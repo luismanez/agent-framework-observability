@@ -9,7 +9,7 @@
 ## Installation
 
 ```xml
-<PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="1.*" />
+<PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="0.1.0" />
 ```
 
 ---

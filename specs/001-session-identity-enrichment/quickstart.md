@@ -9,7 +9,7 @@
 ## Installation
 
 ```xml
-<PackageReference Include="Melic.AgentFramework.Observability.Sessions" Version="1.*" />
+<PackageReference Include="Melic.AgentFramework.Observability.Sessions" Version="0.1.0" />
 ```
 
 ---
@@ -25,6 +25,7 @@ using Microsoft.Agents.AI;
 using Melic.AgentFramework.Observability.Sessions;
 
 AIAgent agent = new AIAgentBuilder(myInnerAgent)
+    .UseOpenTelemetry()
     .UseSessionTelemetry()
     .Build();
 
@@ -104,6 +105,7 @@ Opt in to a parent session span that groups all invocation spans under one trace
 
 ```csharp
 AIAgent agent = new AIAgentBuilder(myInnerAgent)
+    .UseOpenTelemetry()
     .UseSessionTelemetry(o => o.EnableSessionSpan = true)
     .Build();
 

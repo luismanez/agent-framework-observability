@@ -2,21 +2,26 @@
 
 OpenTelemetry-native observability for the [Microsoft Agent Framework (MAF)](https://github.com/microsoft/agent-framework).
 Adds session identity tracking, per-session token aggregation, custom business tags,
-optional session-scoped parent spans, and tool-call span enrichment — all without modifying MAF internals.
+optional session-scoped parent spans, tool-call span enrichment, and export-boundary telemetry redaction — all without modifying MAF internals.
 
 ## Packages
 
 | Package | Purpose |
 |---|---|
+| `Melic.AgentFramework.Observability` | Recommended metapackage — installs Sessions, Tools, and Redaction together |
 | `Melic.AgentFramework.Observability.Abstractions` | Shared attribute constants (`SessionAttributeNames`, `ToolAttributeNames`) and adapter contracts |
 | `Melic.AgentFramework.Observability.Sessions` | Session lifecycle tracing — enriches every `invoke_agent` span with `genai.session.*` tags |
 | `Melic.AgentFramework.Observability.Tools` | Tool-call tracing — enriches MAF `execute_tool` spans with bounded payload and retry attributes |
+| `Melic.AgentFramework.Observability.Redaction` | Export-boundary trace redaction — masks selected sensitive span attributes before export |
 
 ## Quick Start
 
 ```csharp
-using Melic.AgentFramework.Observability.Sessions.Extensions;
+using Melic.AgentFramework.Observability.Redaction;
+using Melic.AgentFramework.Observability.Sessions;
 using Melic.AgentFramework.Observability.Tools;
+using OpenTelemetry;
+using OpenTelemetry.Trace;
 
 // Register the middleware (order matters: UseOpenTelemetry must be outermost)
 var agent = new AIAgentBuilder(innerAgent)
@@ -32,7 +37,17 @@ session.AssignSessionId("order-42");
 // Optionally attach business context tags:
 session.SetSessionTag("tenant.id", "contoso");
 session.SetSessionTag("user.tier", "premium");
+
+using var tracerProvider = Sdk.CreateTracerProviderBuilder()
+    .AddSource("Experimental.Microsoft.Agents.AI")
+    .AddSource("Melic.AgentFramework.Observability.Sessions")
+    .AddSource("Melic.AgentFramework.Observability.Tools")
+    .AddTelemetryRedaction()
+    .AddConsoleExporter()
+    .Build();
 ```
+
+Installing the metapackage is the recommended entrypoint for most consumers. If you only want part of the suite, you can still install `Sessions`, `Tools`, and `Redaction` individually.
 
 ## Key Features
 
@@ -43,6 +58,7 @@ session.SetSessionTag("user.tier", "premium");
 - **Tool-call enrichment** — adds stable `genai.tool.*` attributes to MAF `execute_tool` spans
 - **Payload diagnostics** — optional valid-JSON input and output capture with bounded size
 - **Retry detection** — repeated tool call ids are marked with retry attributes within the current invocation
+- **Telemetry redaction** — selected high-risk tool and GenAI attributes can be masked before export
 - **OTel-only dependencies** — depends only on `OpenTelemetry.Api`, no MAF internals
 
 ## Documentation
@@ -51,6 +67,7 @@ Full technical documentation — including deployment patterns, stateless REST A
 
 - [Sessions package — full reference](https://github.com/luismanez/agent-framework-observability/blob/main/docs/features/session-identity-enrichment.md)
 - [Tools package — full reference](https://github.com/luismanez/agent-framework-observability/blob/main/docs/features/tool-call-enrichment.md)
+- [Redaction package — full reference](https://github.com/luismanez/agent-framework-observability/blob/main/docs/features/redaction-pipeline.md)
 
 ## Links
 

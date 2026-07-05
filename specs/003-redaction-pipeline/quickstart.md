@@ -7,7 +7,7 @@ Enable redaction for high-risk agent telemetry payloads before traces are export
 ## 1. Add the package
 
 ```powershell
-dotnet add package Melic.AgentFramework.Observability.Redaction --prerelease
+dotnet add package Melic.AgentFramework.Observability.Redaction
 ```
 
 When developing in this repository, reference the project instead:

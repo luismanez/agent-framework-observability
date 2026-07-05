@@ -5,7 +5,7 @@
 ## Installation
 
 ```xml
-<PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="1.*" />
+<PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="0.1.0" />
 ```
 
 The package targets `net8.0`, `net9.0`, and `net10.0`.

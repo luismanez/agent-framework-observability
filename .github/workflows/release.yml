@@ -37,7 +37,9 @@ jobs:
       - name: Pack
         run: dotnet pack --no-build -c Release -o ./artifacts
         # Only packs projects with <IsPackable>true</IsPackable>:
+        #   - Melic.AgentFramework.Observability
         #   - Melic.AgentFramework.Observability.Abstractions
+        #   - Melic.AgentFramework.Observability.Redaction
         #   - Melic.AgentFramework.Observability.Sessions
         #   - Melic.AgentFramework.Observability.Tools
         # MinVer derives the version automatically from the git tag (e.g. v0.1.0 → 0.1.0)

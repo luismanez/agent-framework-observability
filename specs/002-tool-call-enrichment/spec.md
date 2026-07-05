@@ -176,7 +176,7 @@ As a developer, I want to enable tool call telemetry with a single call in the a
 - Tool call parameters are accessible as a collection of named values at the point of interception; JSON serialization via `System.Text.Json` is applied to the full collection without pre-filtering.
 - The MAF tool call representation exposes at minimum a tool name and, when available, a tool call identifier; both are accessed only through the documented public API surface.
 - The standard agent telemetry setup that creates MAF `invoke_agent` and `execute_tool` spans is the preferred runtime shape. Without it, Tools falls back to package-owned `agent_tool_call` spans.
-- The `Redaction` package (a planned future sibling) is the designated owner of PII filtering for tool inputs and outputs; the Tools package writes unfiltered values and is explicitly not responsible for redaction of sensitive data.
+- The `Redaction` package is the designated owner of PII filtering for tool inputs and outputs; the Tools package writes unfiltered values and is explicitly not responsible for redaction of sensitive data.
 - `System.Text.Json` is the sole serialization mechanism for input and output; no secondary serialization dependency is introduced.
 - Retry detection is only meaningful when tool call identifiers are available; the absence of an identifier is treated as non-retryable by design rather than as an error condition.
 - Tool telemetry operates correctly whether or not the Sessions package is registered on the same agent; the two packages are independent and do not depend on each other.

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <PackageId>Melic.AgentFramework.Observability</PackageId>
+    <Description>Convenience metapackage for the Melic Agent Framework Observability suite. Installs Sessions, Tools, and Redaction together for Microsoft Agent Framework applications.</Description>
+    <PackageTags>opentelemetry;otel;observability;agents;ai;maf;metapackage;telemetry</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Melic.AgentFramework.Observability.Sessions\Melic.AgentFramework.Observability.Sessions.csproj" />
+    <ProjectReference Include="..\Melic.AgentFramework.Observability.Tools\Melic.AgentFramework.Observability.Tools.csproj" />
+    <ProjectReference Include="..\Melic.AgentFramework.Observability.Redaction\Melic.AgentFramework.Observability.Redaction.csproj" />
+  </ItemGroup>
+
+</Project>

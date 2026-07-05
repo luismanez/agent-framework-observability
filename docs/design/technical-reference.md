@@ -7,7 +7,7 @@
 |---|---|
 | **Status** | Active |
 | **Author** | Luis Mañez |
-| **Last updated** | 2026-05 |
+| **Last updated** | 2026-07 |
 | **Targets** | `net8.0`, `net9.0`, `net10.0` |
 | **License** | MIT |
 
@@ -17,7 +17,7 @@
 
 1. [Background](#1-background)
 2. [Architecture Overview](#2-architecture-overview)
-3. [Package: Performance](#3-package-melicagentframeworkobservabilityperformance)
+3. [Package: Metapackage](#3-package-melicagentframeworkobservability)
 4. [Package: Tools](#4-package-melicagentframeworkobservabilitytools)
 5. [Package: Sessions](#5-package-melicagentframeworkobservabilitysessions)
 6. [Package: Redaction](#6-package-melicagentframeworkobservabilityredaction)
@@ -55,13 +55,13 @@ A single `EnableSensitiveData` boolean controls whether prompts, completions, fu
 
 ### 1.2 Gaps this library fills
 
-1. **No TTFT (time-to-first-token)** measurement for streaming responses.
-2. **No detection of streaming stalls** (gaps between tokens).
-3. **HTTP retries (429/503/timeouts) are not correlated** with the originating agent invocation.
-4. **No token usage limits / circuit breaker** at agent or session level.
-5. **Tool telemetry is per-call only** — no bounded payload capture, retry markers, or package-owned tool attributes for cross-package dashboards.
-6. **No persistent session identity** — `AgentSession` has no stable ID exposed by MAF; correlating multi-turn conversations across invocations requires manual scaffolding.
-7. **Sensitive-data control is a single boolean** — no redaction pipeline, no PII masking.
+The published `0.1.0` suite focuses on the practical gaps that are already implemented and supported:
+
+1. **Tool telemetry is per-call only** — MAF does not add bounded payload capture, retry markers, or package-owned tool attributes for cross-package dashboards.
+2. **No persistent session identity** — `AgentSession` has no stable ID exposed by MAF; correlating multi-turn conversations across invocations requires manual scaffolding.
+3. **Sensitive-data control is a single boolean** — there is no export-boundary redaction pipeline or selective masking for telemetry payloads.
+
+Streaming performance telemetry, HTTP retry correlation, and token-limit enforcement remain future work and are not part of the `0.1.0` suite.
 
 ### 1.3 Package value over MAF out of the box
 
@@ -85,7 +85,7 @@ The goal of this library is not to replace MAF telemetry. Each package should ma
 | Arguments and results | Controlled by MAF's broad `EnableSensitiveData` switch. Payloads may be absent or large. | Captures input/output independently with `CaptureInput`, `CaptureOutput`, `MaxInputLength`, and `MaxOutputLength`, preserving valid JSON after truncation. | You need bounded payload diagnostics without enabling every MAF sensitive-data field globally. |
 | Retry/loop signals | Shows individual tool executions, but does not mark repeated call ids as retries. | Adds `genai.tool.is_retry` and `genai.tool.attempt_index` per invocation scope. | You need to spot repeated tool calls, retries, or model/tool loops quickly. |
 | Fallback instrumentation | Requires the MAF `execute_tool` span to be current for tool-span telemetry. | Emits `agent_tool_call` with `genai.tool.name` and optional `genai.tool.call_id` only when there is no MAF tool span to enrich. | You run a nonstandard pipeline where the function middleware executes without a current MAF `execute_tool` activity. |
-| Future safety controls | MAF has no package-specific redaction hook for tool payloads. | Provides a stable payload surface for future Redaction integration. | You want tool payload observability today with a path to policy-based masking later. |
+| Future safety controls | MAF has no package-specific redaction hook for tool payloads. | Provides a stable payload surface for Redaction integration. | You want tool payload observability today with a path to policy-based masking. |
 
 #### Redaction
 
@@ -113,37 +113,33 @@ The goal of this library is not to replace MAF telemetry. Each package should ma
 The library is split into independent packages. Each package can be installed and used standalone. Packages compose via the existing `AIAgentBuilder` and `TracerProvider`/`MeterProvider` builder pipelines.
 
 ```
-┌──────────────────────────────────┐    ┌────────────────────────────────┐
-│  Observability.Performance       │    │  Observability.Tools           │
-│  - TTFT / stalls / retries       │    │  - execute_tool enrichment     │
-│  - Token-limit circuit breaker   │    │  - Bounded payloads / retries  │
-└──────────────┬───────────────────┘    └──────────────┬─────────────────┘
-               │                                       │
-               ▼                                       ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │           Microsoft Agent Framework (existing OpenTelemetryAgent)    │
 └──────────────────────────────────────────────────────────────────────┘
-               ▲                                       ▲
-               │                                       │
-┌──────────────┴───────────────────┐    ┌──────────────┴─────────────────┐
-│  Observability.Sessions          │    │  Observability.Redaction       │
-│  - Persistent SessionId          │    │  - Activity/Log processors     │
-│  - Aggregate enrichment          │    │  - Pluggable redactor pipeline │
-│  - Optional session span         │    │                                │
-└──────────────────────────────────┘    └────────────────────────────────┘
-                          ▲
-                          │
-              ┌───────────┴───────────┐
-              │  Observability        │
-              │  .Abstractions        │
-              │  (shared interfaces,  │
-              │   enums, constants)   │
-              └───────────────────────┘
+               ▲                           ▲                     ▲
+               │                           │                     │
+┌──────────────┴──────────────┐  ┌─────────┴──────────┐  ┌──────┴─────────────────┐
+│  Observability.Sessions     │  │ Observability.Tools │  │ Observability.Redaction │
+│  - Persistent SessionId     │  │ - execute_tool      │  │ - Activity processors   │
+│  - Aggregate enrichment     │  │ - Bounded payloads  │  │ - Redactor pipeline     │
+│  - Optional session span    │  │ - Retry markers     │  │                         │
+└──────────────┬──────────────┘  └─────────┬──────────┘  └──────────┬──────────────┘
+               │                           │                        │
+               └───────────────┬───────────┴───────────────┬────────┘
+                               ▼                           ▼
+                   ┌──────────────────────────────┐
+                   │ Observability.Abstractions   │
+                   │ shared constants / contracts │
+                   └──────────────────────────────┘
+
+Consumer entrypoint:
+  Melic.AgentFramework.Observability
+  -> depends on Sessions + Tools + Redaction
 ```
 
-All four MVP packages share these design principles:
+The published `0.1.0` suite shares these design principles:
 
-- **Decorator-based** for agent-pipeline concerns (`Performance`, `Tools`, `Sessions`).
+- **Decorator-based** for agent-pipeline concerns (`Tools`, `Sessions`).
 - **OTel processor-based** for cross-cutting concerns (`Redaction`).
 - **Provider-agnostic.** Works with any `AIAgent` implementation.
 - **Fail-safe.** A misbehaving redactor or telemetry decorator must never break the agent run.
@@ -156,7 +152,6 @@ This library extends, never replaces, MAF's `OpenTelemetryAgent`. Required order
 ```csharp
 agent.AsBuilder()
      .UseOpenTelemetry(sourceName: "MyApp")               // MUST come first
-     .UsePerformanceTelemetry(...)                        // any order from here
      .UseToolTelemetry(...)
      .UseSessionTelemetry(...)
      .Build();
@@ -168,120 +163,37 @@ agent.AsBuilder()
 
 ---
 
-## 3. Package: `Melic.AgentFramework.Observability.Performance`
+## 3. Package: `Melic.AgentFramework.Observability`
 
 ### 3.1 Responsibilities
 
-- Measure metrics not derivable from existing MAF spans:
-  - Time-to-first-token (TTFT) for streaming.
-  - Streaming stall events (inter-token gaps above a threshold).
-  - HTTP retries (429 / 503 / transient timeouts) correlated to the agent invocation.
-- Enforce **token-usage circuit breakers** per request and per session.
+- Provide the recommended single-package install for the current suite.
+- Depend on `Sessions`, `Tools`, and `Redaction` without introducing new APIs or runtime behavior.
+- Keep `Abstractions` available transitively through the feature packages rather than as a direct consumer dependency.
 
 ### 3.2 Public API
 
-```csharp
-namespace Melic.AgentFramework.Observability.Performance;
+There are no public types in the metapackage. Consumers install it and continue using the APIs exposed by:
 
-public static class PerformanceTelemetryAgentBuilderExtensions
-{
-    public static AIAgentBuilder UsePerformanceTelemetry(
-        this AIAgentBuilder builder,
-        Action<PerformanceTelemetryOptions>? configure = null);
-}
+- `Melic.AgentFramework.Observability.Sessions`
+- `Melic.AgentFramework.Observability.Tools`
+- `Melic.AgentFramework.Observability.Redaction`
 
-public sealed class PerformanceTelemetryOptions
-{
-    /// <summary>Threshold above which an inter-token gap is counted as a stall. Default: 1s.</summary>
-    public TimeSpan StreamingStallThreshold { get; set; } = TimeSpan.FromSeconds(1);
+### 3.3 Consumer experience
 
-    /// <summary>If null, retry tracking is disabled. Default: enabled.</summary>
-    public RetryTrackingOptions? RetryTracking { get; set; } = new();
+Recommended installation:
 
-    /// <summary>If null, token limits are disabled. Default: null.</summary>
-    public TokenLimitPolicy? TokenLimits { get; set; }
-
-    /// <summary>Meter name. Default: "Melic.AgentFramework.Observability.Performance".</summary>
-    public string MeterName { get; set; } = "Melic.AgentFramework.Observability.Performance";
-}
-
-public sealed class RetryTrackingOptions
-{
-    /// <summary>HTTP status codes treated as transient retries.</summary>
-    public HashSet<int> TransientStatusCodes { get; } = new() { 408, 425, 429, 500, 502, 503, 504 };
-}
-
-public sealed class TokenLimitPolicy
-{
-    public long? MaxTotalTokensPerRequest { get; set; }
-    public long? MaxTotalTokensPerSession { get; set; }
-    public long? MaxOutputTokensPerSession { get; set; }
-
-    /// <summary>Default: Warn (does not throw on the next call).</summary>
-    public TokenLimitAction OnExceeded { get; set; } = TokenLimitAction.Warn;
-
-    /// <summary>Required when OnExceeded == Callback.</summary>
-    public Func<TokenLimitContext, ValueTask<TokenLimitDecision>>? Callback { get; set; }
-}
-
-public enum TokenLimitAction { Warn, Throw, Callback }
-
-public enum TokenLimitDecision { Continue, Abort, ResetCounters }
-
-public sealed record TokenLimitContext(
-    AIAgent Agent,
-    AgentSession? Session,
-    TokenLimitKind Kind,           // PerRequest | SessionTotal | SessionOutput
-    long ObservedValue,
-    long Limit);
-
-public sealed class TokenBudgetExceededException : Exception { /* ... */ }
+```xml
+<PackageReference Include="Melic.AgentFramework.Observability" Version="0.1.0" />
 ```
 
-### 3.3 Tags emitted on `invoke_agent` span
+This gives access to:
 
-| Tag | Type | Emitted when |
-|---|---|---|
-| `genai.latency.ttft_ms` | long | Streaming response with at least one content update |
-| `genai.streaming.stalls` | int | Streaming response (always; may be 0) |
-| `genai.streaming.stall_threshold_ms` | int | When `stalls > 0` |
-| `genai.retries.count` | int | When `> 0` |
-| `genai.retries.last_status` | int | When `count > 0` |
-| `genai.tokens.limit_exceeded` | bool | True when this call tripped any limit |
-| `genai.tokens.limit_kind` | string | `per_request` \| `session_total` \| `session_output` |
+- `.UseSessionTelemetry()`
+- `.UseToolTelemetry()`
+- `.AddTelemetryRedaction()`
 
-### 3.4 Metrics
-
-Meter: `Melic.AgentFramework.Observability.Performance` (configurable).
-
-| Instrument | Type | Unit | Tags |
-|---|---|---|---|
-| `genai.latency.ttft` | Histogram\<long\> | ms | `gen_ai.request.model`, `gen_ai.provider.name`, `gen_ai.agent.name` |
-| `genai.streaming.stalls_observed` | Counter\<long\> | events | same as above |
-| `genai.retries.observed` | Counter\<long\> | events | same + `status_code` |
-| `genai.tokens.session_total` | UpDownCounter\<long\> | tokens | `gen_ai.agent.name` |
-| `genai.tokens.limit_exceeded_total` | Counter\<long\> | events | `gen_ai.agent.name`, `limit_kind` |
-
-> **Cardinality rule:** `gen_ai.session.id` and `gen_ai.agent.id` MUST NOT appear in metric tags.
-
-### 3.5 Implementation notes
-
-- `PerformanceTelemetryAgent : DelegatingAIAgent` instruments `RunCoreAsync` (no TTFT/stalls there) and `RunCoreStreamingAsync` (full instrumentation).
-- TTFT = elapsed time from method entry to the first `AgentResponseUpdate` containing text content. "Content" is detected by `update.Contents` having a non-empty `TextContent` or any non-empty function-call/result content.
-- Stalls = count of inter-token gaps where `(now - lastTokenAt) >= StreamingStallThreshold`. Computed against monotonic timestamps from a single `Stopwatch`.
-- Retry tracking uses an `ActivityListener` registered for `System.Net.Http` and the agent source. On `OnEnd`, child activities of the active `invoke_agent` whose status code matches `TransientStatusCodes` are counted into a `ConditionalWeakTable<Activity, RetryState>` keyed by the parent.
-- Token limits:
-  - State is stored on the `AgentSession.StateBag` under key `__telemetry.tokens`.
-  - On each call, after delegating, the resulting `Usage` is read from the response (`AgentResponse.Usage` if available, otherwise from `Activity.Current` tags).
-  - Counters are updated; if any limit is exceeded, `genai.tokens.limit_exceeded=true` tag is set and `OnExceeded` is queued for the **next** call.
-  - On the next `RunCoreAsync` of the same session, before delegating, the policy is enforced: `Throw` raises `TokenBudgetExceededException`; `Warn` logs and tags the new span with `genai.tokens.limit_already_exceeded=true`; `Callback` invokes the user delegate and acts on its `TokenLimitDecision`.
-- Per-request limit is enforced after the response (next call blocked); same semantics as session limits.
-
-### 3.6 Known limitations
-
-- TTFT and stalls require streaming. In `RunAsync`, those tags/metrics are not emitted.
-- Token limits are **post-hoc circuit breakers**, not hard limits — the call that tripped the limit completes and returns normally; only the **next** call in the same session is blocked.
-- Retry tracking only sees retries that produce child `Activity` instances (i.e., `HttpClient` instrumentation must be enabled).
+Installing the metapackage does not enable any middleware or telemetry processor automatically. Consumers still opt in explicitly at the agent builder and tracer provider registration points.
 
 ---
 
@@ -360,7 +272,7 @@ The primary target is MAF's current `execute_tool` span. If that span is not cur
 
 ### 4.6 Known limitations
 
-- Bounded payload capture is not redaction. Disable capture or use the future Redaction package when payloads may contain sensitive data.
+- Bounded payload capture is not redaction. Disable capture or use the Redaction package when payloads may contain sensitive data.
 - Retry detection requires a non-empty tool call id. Without one, retry attributes are omitted.
 - `ActivitySourceName` affects fallback spans only; it does not change MAF's `execute_tool` source.
 - If MAF changes the marker used to identify `execute_tool` spans, the enrichment target detection may need to be updated.
@@ -627,7 +539,6 @@ Diagnostics must never include rule names, matched values, original fragments, f
 
 - Each decorator runs telemetry work in `try`/`catch` that swallows non-cancellation exceptions and logs at `Warning`.
 - A telemetry failure must never break the agent run.
-- Exception: `TokenBudgetExceededException` is intentional and propagates normally.
 
 ### 7.4 Threading and async
 
@@ -657,7 +568,6 @@ All packages follow a consistent registration pattern:
 
 Each package exposes test seams:
 
-- **Performance**: a fake `IAsyncEnumerable<AgentResponseUpdate>` driver lets tests assert TTFT/stalls deterministically.
 - **Tools**: synthetic `execute_tool` activities created in tests verify in-place enrichment, bounded payload capture, retry detection, and fallback span behavior.
 - **Sessions**: an in-memory `AgentSession` subclass exercises StateBag persistence.
 - **Redaction**: each redactor tested in isolation; the pipeline tested with synthetic activities.
@@ -668,7 +578,6 @@ Each package exposes test seams:
 
 ```csharp
 using Microsoft.Agents.AI;
-using Melic.AgentFramework.Observability.Performance;
 using Melic.AgentFramework.Observability.Tools;
 using Melic.AgentFramework.Observability.Sessions;
 using Melic.AgentFramework.Observability.Redaction;
@@ -681,23 +590,15 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .AddSource(AppSource)
     .AddSource("Experimental.Microsoft.Agents.AI")
     .AddSource("Melic.AgentFramework.Observability.Sessions")
-    .AddRedaction(o => o.UseStandardRedactors())
-    .AddOtlpExporter()
+    .AddSource("Melic.AgentFramework.Observability.Tools")
+    .AddTelemetryRedaction(o => o.IncludeMafSensitiveDataAttributes())
+    .AddConsoleExporter()
     .Build();
 
 var agent = chatClient
     .AsAIAgent(name: "Support", instructions: "...")
     .AsBuilder()
     .UseOpenTelemetry(sourceName: AppSource, configure: c => c.EnableSensitiveData = true)
-    .UsePerformanceTelemetry(o =>
-    {
-        o.StreamingStallThreshold = TimeSpan.FromSeconds(1);
-        o.TokenLimits = new TokenLimitPolicy
-        {
-            MaxTotalTokensPerSession = 200_000,
-            OnExceeded = TokenLimitAction.Warn
-        };
-    })
     .UseToolTelemetry(o =>
     {
         o.MaxInputLength = 1024;
@@ -711,7 +612,7 @@ var agent = chatClient
 var session = await agent.CreateSessionAsync();
 session.SetSessionTag("user.tier", "premium");
 
-await using (agent.BeginSessionTrace(session))
+using (agent.BeginSessionTrace(session))
 {
     while (true)
     {
@@ -730,6 +631,7 @@ await using (agent.BeginSessionTrace(session))
 
 | Package | Notes |
 |---|---|
+| `Melic.AgentFramework.Observability.Performance` | Future package for streaming performance telemetry, retry correlation, and token-limit controls. Not part of `0.1.0`. |
 | `Melic.AgentFramework.Observability.Cost.Contracts` | Bring-your-own pricing resolver; metrics/tags for cost. |
 | `Melic.AgentFramework.Observability.Redaction.<Country>` | Country-specific PII detectors. First one only after MVP is published and stable. |
 | `Melic.AgentFramework.Observability.Redaction.Presidio` | HTTP-based integration with Microsoft Presidio. |
@@ -744,21 +646,15 @@ await using (agent.BeginSessionTrace(session))
 
 | # | Decision |
 |---|---|
-| D1 | Cost catalog not included in MVP. |
-| D2 | Token limits implemented as post-hoc circuit breakers (next-call enforcement). Default action: `Warn`. |
-| D3 | Performance and Tools are separate packages. |
-| D4 | Streaming stall threshold default: `1s`. |
-| D5 | Tools enriches MAF `execute_tool` spans in place and creates `agent_tool_call` only as a fallback. |
-| D6 | `SessionId` auto-generated and persisted in `StateBag`; overridable via `AssignSessionId`. |
-| D7 | Mode B (session span) is included in MVP, opt-in. |
-| D8 | Token aggregates enabled by default. |
-| D9 | Redaction implemented as OTel processors (Activity + Log), not as agent decorators. |
-| D10 | Standard redactor preset = Email, CreditCard, IBAN, JWT, PrivateKey, PasswordPattern. |
-| D11 | Default placeholder = `Token`. |
-| D12 | Allowlist is per-redactor, not global. |
-| D13 | No country-specific detectors in core. First satellite only after MVP is published and stable. |
-| D14 | Failure mode default = `FailSafe`. |
-| D15 | All library-defined attributes use the `genai.` prefix; the official `gen_ai.` namespace is never reused except via standard OTel SemConv emissions. |
+| D1 | `Melic.AgentFramework.Observability` is the recommended single-package install for the current suite. |
+| D2 | `Sessions`, `Tools`, and `Redaction` remain independently installable and versioned packages. |
+| D3 | Tools enriches MAF `execute_tool` spans in place and creates `agent_tool_call` only as a fallback. |
+| D4 | `SessionId` is auto-generated and persisted in `StateBag`, but can be anchored explicitly via `AssignSessionId`. |
+| D5 | Mode B session tracing is included in `Sessions`, but remains opt-in. |
+| D6 | Redaction is implemented as an OpenTelemetry trace processor, not as an agent decorator. |
+| D7 | Built-in session correlation attributes are not default redaction targets. |
+| D8 | All library-defined attributes use the `genai.` prefix; the official `gen_ai.` namespace is reused only for interoperability with MAF and the OTel semantic conventions. |
+| D9 | `Performance` is future work and not part of the published `0.1.0` suite. |
 
 ---
 

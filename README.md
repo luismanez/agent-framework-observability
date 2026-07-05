@@ -8,18 +8,29 @@ Enriches AI agent sessions and tool calls with stable identity, bounded payload 
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| `Melic.AgentFramework.Observability.Abstractions` | `0.1.0-preview.2` | Shared attribute-name constants |
-| `Melic.AgentFramework.Observability.Sessions` | `0.1.0-preview.2` | Session identity & telemetry enrichment |
-| `Melic.AgentFramework.Observability.Tools` | `0.1.0-preview.2` | Bounded tool-call payload and retry enrichment |
-| `Melic.AgentFramework.Observability.Redaction` | *(unreleased)* | MAF-aware OpenTelemetry trace-attribute redaction before export |
+| `Melic.AgentFramework.Observability` | `0.1.0` | Recommended metapackage that installs Sessions, Tools, and Redaction together |
+| `Melic.AgentFramework.Observability.Abstractions` | `0.1.0` | Shared attribute-name constants |
+| `Melic.AgentFramework.Observability.Sessions` | `0.1.0` | Session identity & telemetry enrichment |
+| `Melic.AgentFramework.Observability.Tools` | `0.1.0` | Bounded tool-call payload and retry enrichment |
+| `Melic.AgentFramework.Observability.Redaction` | `0.1.0` | MAF-aware OpenTelemetry trace-attribute redaction before export |
 
 ## Installation
 
+Recommended for most applications:
+
 ```xml
-<PackageReference Include="Melic.AgentFramework.Observability.Sessions" Version="1.*" />
-<PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="1.*" />
-<PackageReference Include="Melic.AgentFramework.Observability.Redaction" Version="1.*" />
+<PackageReference Include="Melic.AgentFramework.Observability" Version="0.1.0" />
 ```
+
+Advanced / selective installation:
+
+```xml
+<PackageReference Include="Melic.AgentFramework.Observability.Sessions" Version="0.1.0" />
+<PackageReference Include="Melic.AgentFramework.Observability.Tools" Version="0.1.0" />
+<PackageReference Include="Melic.AgentFramework.Observability.Redaction" Version="0.1.0" />
+```
+
+Installing the metapackage does not activate Redaction by itself. Session and tool telemetry are still opt-in on the `AIAgentBuilder`, and Redaction still requires an explicit `.AddTelemetryRedaction(...)` call on the `TracerProvider`.
 
 ## Quick start (Scenario 1 — Mode A enrichment)
 
@@ -32,6 +43,7 @@ using Microsoft.Agents.AI;
 using Melic.AgentFramework.Observability.Sessions;
 
 AIAgent agent = new AIAgentBuilder(myInnerAgent)
+    .UseOpenTelemetry()
     .UseSessionTelemetry()
     .Build();
 

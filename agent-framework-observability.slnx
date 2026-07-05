@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Melic.AgentFramework.Observability/Melic.AgentFramework.Observability.csproj" />
     <Project Path="src/Melic.AgentFramework.Observability.Abstractions/Melic.AgentFramework.Observability.Abstractions.csproj" />
     <Project Path="src/Melic.AgentFramework.Observability.Redaction/Melic.AgentFramework.Observability.Redaction.csproj" />
     <Project Path="src/Melic.AgentFramework.Observability.Sessions/Melic.AgentFramework.Observability.Sessions.csproj" />

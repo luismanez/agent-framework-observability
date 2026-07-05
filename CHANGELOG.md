@@ -7,8 +7,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-05
+
 ### Added
 
+- **Convenience Metapackage** — New `Melic.AgentFramework.Observability` package installs `Sessions`, `Tools`, and `Redaction` together as the recommended entrypoint for new consumers.
 - **Redaction Pipeline** — New `Melic.AgentFramework.Observability.Redaction` package adds `.AddTelemetryRedaction()` for OpenTelemetry trace pipelines, redacting selected string attributes before export. (see specs/003-redaction-pipeline/)
 - **Default Tool Payload Protection** — Redacts `genai.tool.input` and `genai.tool.output` by default with built-in rules for email, phone-like values, bearer tokens, API-token fragments, connection-string secrets, password-like fragments, and sensitive JSON field names. (see specs/003-redaction-pipeline/)
 - **Configurable Redaction Scope** — Consumers can include or exclude attributes by exact name or prefix, opt selected official `gen_ai.*` attributes into processing, add custom regex rules, add sensitive JSON field names, and disable default rules while keeping custom rules. (see specs/003-redaction-pipeline/)
@@ -22,6 +25,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Session Aggregate Enrichment** — Running totals for input and output tokens, a 1-based invocation index, session age in seconds, and first-seen timestamp are accumulated in the session state and emitted on every `invoke_agent` span. (see specs/001-session-identity-enrichment/)
 - **Custom Business Tag Propagation** — Developers can attach arbitrary key-value tags to a session (e.g. tenant ID, user tier) via `SetSessionTag`; tags propagate to all subsequent spans and survive serialization. (see specs/001-session-identity-enrichment/)
 - **Mode B Session Span** — Opt-in explicit parent span (`BeginSessionTrace`) groups all invocation spans under a single `agent_session <agent.name>` root span; final aggregates and a `session.ended` event are recorded on dispose. (see specs/001-session-identity-enrichment/)
+- New package `Melic.AgentFramework.Observability` — metapackage that depends on `Sessions`, `Tools`, and `Redaction`.
 - New package `Melic.AgentFramework.Observability.Sessions` — session telemetry decorator, builder extension (`UseSessionTelemetry`), and session extension methods (`AssignSessionId`, `GetSessionId`, `SetSessionTag`, `BeginSessionTrace`).
 - New package `Melic.AgentFramework.Observability.Abstractions` — shared `SessionAttributeNames` constants for all `genai.session.*` attribute names.
 - OTel metrics: `genai.session.invocations` (counter), `genai.session.duration` (histogram, ms), `genai.session.active` (up-down counter), `session.statebag.write.failures` (counter).
