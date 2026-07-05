@@ -5,6 +5,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
     <NoPackageAnalysis>true</NoPackageAnalysis>
     <PackageId>Melic.AgentFramework.Observability</PackageId>
     <Description>Convenience metapackage for the Melic Agent Framework Observability suite. Installs Sessions, Tools, and Redaction together for Microsoft Agent Framework applications.</Description>
